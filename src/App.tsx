@@ -12,6 +12,7 @@ import CompressPDF from "./pages/CompressPDF";
 import PDFToImage from "./pages/PDFToImage";
 import CreatePDF from "./pages/CreatePDF";
 import PDFTools from "./pages/PDFTools";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/compress-pdf" element={<CompressPDF />} />
           <Route path="/pdf-to-image" element={<PDFToImage />} />
           <Route path="/create-pdf" element={<CreatePDF />} />
+          <Route path="/pricing" element={<Pricing />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
