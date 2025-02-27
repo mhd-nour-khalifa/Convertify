@@ -146,12 +146,37 @@ const PDFToImage = () => {
     }, 2000);
   };
 
-  const downloadImages = () => {
+  const downloadImage = (pageNumber: number) => {
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = `https://via.placeholder.com/800x1132?text=Page+${pageNumber}`;
+    link.download = `page-${pageNumber}.${format}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     toast({
       title: "Download Started",
-      description: `Your ${convertedImages.length} ${format.toUpperCase()} images are downloading.`,
+      description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
     });
-    // In a real app, this would be a link to download the converted images
+  };
+
+  const downloadImages = () => {
+    // For small number of images, download them sequentially
+    // In a real app with many images, would use a zip file approach
+    if (convertedImages.length > 0) {
+      toast({
+        title: "Download Started",
+        description: `Your ${convertedImages.length} ${format.toUpperCase()} images are downloading.`,
+      });
+      
+      // Add a small delay between downloads to prevent browser blocking
+      convertedImages.forEach((image, index) => {
+        setTimeout(() => {
+          downloadImage(image.page);
+        }, index * 300);
+      });
+    }
   };
 
   return (
@@ -202,7 +227,16 @@ const PDFToImage = () => {
                         alt={`Page ${image.page}`} 
                         className="w-full h-auto"
                       />
-                      <div className="p-2 text-center text-sm">Page {image.page}</div>
+                      <div className="p-2 text-center text-sm flex justify-between items-center">
+                        <span>Page {image.page}</span>
+                        <button 
+                          onClick={() => downloadImage(image.page)}
+                          className="text-primary hover:text-primary/80"
+                          aria-label={`Download page ${image.page}`}
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
