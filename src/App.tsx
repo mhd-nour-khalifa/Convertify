@@ -14,6 +14,9 @@ import CreatePDF from "./pages/CreatePDF";
 import PDFTools from "./pages/PDFTools";
 import Pricing from "./pages/Pricing";
 import PDFToText from "./pages/PDFToText";
+import ProtectPDF from "./pages/ProtectPDF";
+import UnlockPDF from "./pages/UnlockPDF";
+import RotatePDF from "./pages/RotatePDF";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +35,9 @@ const App = () => (
           <Route path="/pdf-to-image" element={<PDFToImage />} />
           <Route path="/pdf-to-text" element={<PDFToText />} />
           <Route path="/create-pdf" element={<CreatePDF />} />
+          <Route path="/protect-pdf" element={<ProtectPDF />} />
+          <Route path="/unlock-pdf" element={<UnlockPDF />} />
+          <Route path="/rotate-pdf" element={<RotatePDF />} />
           <Route path="/pricing" element={<Pricing />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
