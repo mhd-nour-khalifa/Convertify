@@ -10,6 +10,7 @@ import MergePDF from "./pages/MergePDF";
 import SplitPDF from "./pages/SplitPDF";
 import CompressPDF from "./pages/CompressPDF";
 import PDFToImage from "./pages/PDFToImage";
+import CreatePDF from "./pages/CreatePDF";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/split-pdf" element={<SplitPDF />} />
           <Route path="/compress-pdf" element={<CompressPDF />} />
           <Route path="/pdf-to-image" element={<PDFToImage />} />
+          <Route path="/create-pdf" element={<CreatePDF />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
