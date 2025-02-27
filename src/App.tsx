@@ -13,6 +13,7 @@ import PDFToImage from "./pages/PDFToImage";
 import CreatePDF from "./pages/CreatePDF";
 import PDFTools from "./pages/PDFTools";
 import Pricing from "./pages/Pricing";
+import PDFToText from "./pages/PDFToText";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/split-pdf" element={<SplitPDF />} />
           <Route path="/compress-pdf" element={<CompressPDF />} />
           <Route path="/pdf-to-image" element={<PDFToImage />} />
+          <Route path="/pdf-to-text" element={<PDFToText />} />
           <Route path="/create-pdf" element={<CreatePDF />} />
           <Route path="/pricing" element={<Pricing />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
