@@ -11,6 +11,7 @@ import SplitPDF from "./pages/SplitPDF";
 import CompressPDF from "./pages/CompressPDF";
 import PDFToImage from "./pages/PDFToImage";
 import CreatePDF from "./pages/CreatePDF";
+import PDFTools from "./pages/PDFTools";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/pdf-tools" element={<PDFTools />} />
           <Route path="/merge-pdf" element={<MergePDF />} />
           <Route path="/split-pdf" element={<SplitPDF />} />
           <Route path="/compress-pdf" element={<CompressPDF />} />
