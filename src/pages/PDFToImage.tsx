@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -7,6 +8,11 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
+import * as pdfjs from 'pdfjs-dist';
+
+// Initialize pdf.js worker
+const pdfjsWorkerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
 
 type ImageFormat = "jpg" | "png" | "webp";
 type DPI = 72 | 150 | 300;
@@ -45,8 +51,9 @@ const PDFToImage = () => {
       const arrayBuffer = await selectedFile.arrayBuffer();
       setPdfArrayBuffer(arrayBuffer);
       
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-      const actualPageCount = pdfDoc.getPageCount();
+      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const actualPageCount = pdf.numPages;
       setPageCount(actualPageCount);
       
       generatePagePreviews(arrayBuffer);
@@ -72,24 +79,45 @@ const PDFToImage = () => {
     setIsGeneratingPreviews(true);
     try {
       const previewsArray: string[] = [];
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-      const pageCount = pdfDoc.getPageCount();
+      const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const pageCount = pdf.numPages;
       
-      const batchSize = 5;
+      const batchSize = 3;
       for (let i = 0; i < pageCount; i += batchSize) {
         await new Promise(resolve => setTimeout(resolve, 0));
         
         const batchEnd = Math.min(i + batchSize, pageCount);
+        const batchPromises = [];
+        
         for (let j = i; j < batchEnd; j++) {
-          const newPdfDoc = await PDFDocument.create();
-          const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [j]);
-          newPdfDoc.addPage(copiedPage);
-          
-          const pdfBytes = await newPdfDoc.saveAsBase64({ dataUri: true });
-          previewsArray[j] = pdfBytes;
+          batchPromises.push(
+            (async (pageIndex) => {
+              const page = await pdf.getPage(pageIndex + 1);
+              const viewport = page.getViewport({ scale: 0.5 });
+              
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              
+              if (context) {
+                await page.render({
+                  canvasContext: context,
+                  viewport: viewport
+                }).promise;
+                
+                previewsArray[pageIndex] = canvas.toDataURL('image/jpeg', 0.7);
+              }
+            })(j)
+          );
         }
         
+        await Promise.all(batchPromises);
         setPagePreviews([...previewsArray]);
+        
+        // Give the UI a chance to update
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       setIsGeneratingPreviews(false);
@@ -154,47 +182,58 @@ const PDFToImage = () => {
     return true;
   };
 
-  const convertPDFPageToImage = async (pdfDataUri: string, format: ImageFormat, pageNum: number): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      if (!ctx) {
-        reject(new Error("Could not get canvas context"));
-        return;
-      }
-      
-      img.onload = () => {
-        try {
-          const scale = dpi / 72;
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.scale(scale, scale);
-          ctx.drawImage(img, 0, 0);
-          
-          const mimeType = format === 'jpg' ? 'image/jpeg' : 
-                           format === 'png' ? 'image/png' : 'image/webp';
-          
-          canvas.toBlob((blob) => {
-            if (blob) {
-              resolve(blob);
-            } else {
-              reject(new Error(`Failed to convert page ${pageNum} to ${format}`));
-            }
-          }, mimeType, format === 'jpg' ? 0.95 : undefined);
-        } catch (error) {
-          reject(error);
+  const convertPDFPageToImage = async (pageNum: number, format: ImageFormat, dpi: DPI): Promise<Blob> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!pdfArrayBuffer) {
+          reject(new Error("PDF data not available"));
+          return;
         }
-      };
-      
-      img.onerror = () => {
-        reject(new Error(`Failed to load PDF page ${pageNum} for conversion`));
-      };
-      
-      img.src = pdfDataUri;
+        
+        // Load the PDF page with pdf.js
+        const loadingTask = pdfjs.getDocument({ data: pdfArrayBuffer });
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(pageNum);
+        
+        // Calculate desired width/height based on DPI
+        const scale = dpi / 72;
+        const viewport = page.getViewport({ scale });
+        
+        // Create canvas and render the PDF page
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        
+        if (!context) {
+          reject(new Error("Could not create canvas context"));
+          return;
+        }
+        
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        
+        // Fill canvas with white background (PDF pages are transparent by default)
+        context.fillStyle = 'white';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Render the PDF page to the canvas
+        await page.render({ canvasContext: context, viewport }).promise;
+        
+        // Convert canvas to blob of desired format
+        const mimeType = format === 'jpg' ? 'image/jpeg' : 
+                         format === 'png' ? 'image/png' : 'image/webp';
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error(`Failed to convert page ${pageNum} to ${format}`));
+          }
+        }, mimeType, format === 'jpg' ? 0.95 : undefined);
+        
+      } catch (error) {
+        console.error(`Error converting page ${pageNum}:`, error);
+        reject(error);
+      }
     });
   };
 
@@ -235,24 +274,18 @@ const PDFToImage = () => {
       }
       
       const uniquePages = [...new Set(pagesToConvert)].sort((a, b) => a - b);
-      
-      const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
       const convertedImagesResult = [];
       
+      // Process in smaller batches to avoid memory issues
       const batchSize = 2;
       for (let i = 0; i < uniquePages.length; i += batchSize) {
         const batchPages = uniquePages.slice(i, i + batchSize);
         
         const batchPromises = batchPages.map(async (pageNum) => {
-          const newPdfDoc = await PDFDocument.create();
-          const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [pageNum - 1]);
-          newPdfDoc.addPage(copiedPage);
-          
-          const pdfBytes = await newPdfDoc.saveAsBase64({ dataUri: true });
-          
           try {
-            const blob = await convertPDFPageToImage(pdfBytes, format, pageNum);
+            const blob = await convertPDFPageToImage(pageNum, format, dpi);
             const thumbnail = URL.createObjectURL(blob);
+            
             return {
               page: pageNum,
               thumbnail,
@@ -265,11 +298,10 @@ const PDFToImage = () => {
         });
         
         const batchResults = await Promise.all(batchPromises);
-        
         convertedImagesResult.push(...batchResults);
-        
         setConvertedImages([...convertedImagesResult]);
         
+        // Give the UI a chance to update
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
@@ -327,6 +359,7 @@ const PDFToImage = () => {
         description: `Your ${convertedImages.length} ${format.toUpperCase()} images are downloading.`,
       });
       
+      // Download with small delays between to avoid browser limits
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
           downloadImage(image.page, image.blob);
@@ -335,6 +368,7 @@ const PDFToImage = () => {
     }
   };
 
+  // Clean up object URLs when component unmounts or images change
   useEffect(() => {
     return () => {
       if (convertedImages.length > 0) {
@@ -461,10 +495,10 @@ const PDFToImage = () => {
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                           {pagePreviews.map((preview, index) => (
                             <div key={index} className="relative rounded-md overflow-hidden border border-muted-foreground/10">
-                              <iframe 
+                              <img 
                                 src={preview} 
-                                title={`Page ${index + 1}`} 
-                                className="w-full h-32 object-contain border-none"
+                                alt={`Page ${index + 1}`} 
+                                className="w-full h-32 object-contain"
                               />
                               <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-xs p-1 text-center">
                                 Page {index + 1}
