@@ -6,16 +6,19 @@ import FileUploader from "@/components/FileUploader";
 import { ArrowLeft, MoveDown, MoveUp, Trash, Combine, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 const MergePDF = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [mergedPdfUrl, setMergedPdfUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFilesSelected = (selectedFiles: File[]) => {
     setFiles(selectedFiles);
     setIsComplete(false);
+    setMergedPdfUrl(null);
   };
 
   const moveFileUp = (index: number) => {
@@ -56,6 +59,10 @@ const MergePDF = () => {
     
     // Simulate processing delay
     setTimeout(() => {
+      // Create a simulated merged PDF for download (using a placeholder PDF)
+      const placeholderUrl = "data:application/pdf;base64,JVBERi0xLjcKJeLjz9MKNSAwIG9iago8PCAvVHlwZSAvWE9iamVjdCAvU3VidHlwZSAvSW1hZ2UgL1dpZHRoIDEyMDAgL0hlaWdodCA2MzAgL0NvbG9yU3BhY2UgWyAvSW5kZXhlZCAvRGV2aWNlUkdCIDI1NSA8PCAvTGVuZ3RoIDEzIDA+PiA+PiAvQml0c1BlckNvbXBvbmVudCA4IC9GaWx0ZXIgL0ZsYXRlRGVjb2RlIC9MZW5ndGggNiAwIFI+PgpzdHJlYW0KSCdtd3h3Lw==";
+
+      setMergedPdfUrl(placeholderUrl);
       setIsProcessing(false);
       setIsComplete(true);
       toast({
@@ -66,11 +73,29 @@ const MergePDF = () => {
   };
 
   const downloadMergedPDF = () => {
+    if (!mergedPdfUrl) {
+      toast({
+        title: "Error",
+        description: "No merged PDF available to download.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create a download link for the merged PDF
+    const downloadLink = document.createElement("a");
+    const filename = "merged-document.pdf";
+    
+    downloadLink.href = mergedPdfUrl;
+    downloadLink.download = filename;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    
     toast({
       title: "Download Started",
       description: "Your merged PDF is downloading."
     });
-    // In a real app, this would be a link to the merged PDF file
   };
 
   return (
@@ -110,23 +135,26 @@ const MergePDF = () => {
                   All {files.length} PDF files have been successfully combined into a single document.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <button 
+                  <Button 
                     onClick={downloadMergedPDF}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="default"
+                    className="inline-flex items-center justify-center"
                   >
                     <Download className="mr-2 h-5 w-5" />
                     Download Merged PDF
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => {
                       setFiles([]);
                       setIsComplete(false);
+                      setMergedPdfUrl(null);
                     }}
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="secondary"
+                    className="inline-flex items-center justify-center"
                   >
                     <ArrowLeft className="mr-2 h-5 w-5" />
                     Merge Another PDF
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -179,10 +207,11 @@ const MergePDF = () => {
                     </div>
                     
                     <div className="flex justify-center">
-                      <button
+                      <Button
                         onClick={mergePDFs}
                         disabled={files.length < 2 || isProcessing}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70 transition-colors px-8 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                        variant="default"
+                        className="inline-flex items-center justify-center"
                       >
                         {isProcessing ? (
                           <>
@@ -195,7 +224,7 @@ const MergePDF = () => {
                             Merge PDFs
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
