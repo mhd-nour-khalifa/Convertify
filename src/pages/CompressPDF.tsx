@@ -23,6 +23,8 @@ const CompressPDF = () => {
   const [compressedSize, setCompressedSize] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [compressedPdfData, setCompressedPdfData] = useState<Uint8Array | null>(null);
+  const [compressedFileName, setCompressedFileName] = useState<string>("");
   const { toast } = useToast();
 
   const handleFileSelected = (selectedFiles: File[]) => {
@@ -35,6 +37,7 @@ const CompressPDF = () => {
     setFile(selectedFiles[0]);
     setOriginalSize(selectedFiles[0].size);
     setIsComplete(false);
+    setCompressedPdfData(null);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -56,7 +59,7 @@ const CompressPDF = () => {
     return originalSize * ratios[level];
   };
 
-  const compressPDF = () => {
+  const compressPDF = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -68,25 +71,100 @@ const CompressPDF = () => {
     
     setIsProcessing(true);
     
-    // Simulate processing delay
-    setTimeout(() => {
+    try {
+      // Read the file as ArrayBuffer
+      const fileBuffer = await file.arrayBuffer();
+      const fileData = new Uint8Array(fileBuffer);
+      
+      // In a real app, this would actually compress the PDF using a PDF library
+      // For this demo, we'll simulate compression
+      
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       const compressed = calculateCompressedSize(compressionLevel);
       setCompressedSize(compressed);
+      
+      // Save the original PDF data for download (in a real app, this would be the compressed data)
+      setCompressedPdfData(fileData);
+      setCompressedFileName(`compressed_${file.name}`);
+      
       setIsProcessing(false);
       setIsComplete(true);
+      
       toast({
         title: "PDF Successfully Compressed!",
         description: `Reduced from ${formatFileSize(originalSize)} to ${formatFileSize(compressed)}`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error compressing PDF:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Compression Failed",
+        description: "There was an error compressing your PDF file.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadCompressedPDF = () => {
-    toast({
-      title: "Download Started",
-      description: "Your compressed PDF is downloading.",
-    });
-    // In a real app, this would be a link to download the compressed PDF file
+    if (!compressedPdfData || !compressedFileName) {
+      toast({
+        title: "Download Failed",
+        description: "Compressed PDF data is not available.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      // Create blob with the PDF data
+      const blob = new Blob([compressedPdfData], { type: "application/pdf" });
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create an invisible iframe for more reliable downloads
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      document.body.appendChild(iframe);
+      
+      // Open the URL in the iframe context
+      if (iframe.contentWindow) {
+        iframe.contentWindow.location.href = url;
+      
+        // Create a fallback direct download link in case iframe approach fails
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download = compressedFileName;
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        
+        // Trigger download
+        downloadLink.click();
+        
+        // Clean up resources
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+          document.body.removeChild(downloadLink);
+          window.URL.revokeObjectURL(url);
+          
+          console.log(`Downloaded compressed file: ${compressedFileName}`);
+          
+          toast({
+            title: "Download Complete",
+            description: `Your compressed PDF has been downloaded as ${compressedFileName}`,
+          });
+        }, 2000);
+      }
+    } catch (error) {
+      console.error("Error downloading compressed PDF:", error);
+      toast({
+        title: "Download Failed",
+        description: "There was a problem downloading your compressed PDF.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -160,6 +238,8 @@ const CompressPDF = () => {
                       setOriginalSize(0);
                       setCompressedSize(0);
                       setIsComplete(false);
+                      setCompressedPdfData(null);
+                      setCompressedFileName("");
                     }}
                     className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
                   >
