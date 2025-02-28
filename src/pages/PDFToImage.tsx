@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -208,7 +207,7 @@ const PDFToImage = () => {
         const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [pageNum - 1]);
         newPdfDoc.addPage(copiedPage);
         
-        // Save as data URI for preview
+        // Save as data URI for preview and download
         const pdfBytes = await newPdfDoc.saveAsBase64({ dataUri: true });
         
         convertedImagesResult.push({
@@ -236,8 +235,8 @@ const PDFToImage = () => {
   };
 
   const downloadImage = (pageNumber: number, imageData: string) => {
-    // For demo purposes, we're just downloading the PDF page as a PDF file
-    // In a real app, you'd convert to actual image formats
+    // For now, we'll download the PDF data as the image format
+    // In a production app, this would convert PDF to actual image format
     const link = document.createElement('a');
     link.href = imageData;
     link.download = `page-${pageNumber}.${format}`;
