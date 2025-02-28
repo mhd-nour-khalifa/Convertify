@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,11 +10,11 @@ import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from 'pdfjs-dist';
 
-// Set up the worker source
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url,
-).toString();
+// Import the worker directly to ensure it's bundled with the application
+import 'pdfjs-dist/build/pdf.worker.mjs';
+
+// Set the worker source in a more reliable way
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
 type ImageFormat = "jpg" | "png" | "webp";
 type DPI = 72 | 150 | 300;
@@ -54,6 +55,10 @@ const PDFToImage = () => {
       setPdfArrayBuffer(arrayBuffer);
       
       console.log("Loading PDF document");
+      
+      // Check if worker is ready
+      console.log("Worker source:", pdfjs.GlobalWorkerOptions.workerSrc);
+      
       const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       const actualPageCount = pdf.numPages;
