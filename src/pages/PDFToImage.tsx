@@ -6,6 +6,7 @@ import FileUploader from "@/components/FileUploader";
 import { Loader2, ImageIcon, Download, ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 
 type ImageFormat = "jpg" | "png" | "webp";
 type DPI = 72 | 150 | 300;
@@ -242,25 +243,27 @@ const PDFToImage = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <button 
+                  <Button 
                     onClick={downloadImages}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="default"
+                    className="inline-flex items-center justify-center"
                   >
                     <Download className="mr-2 h-5 w-5" />
                     Download All Images
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => {
                       setFile(null);
                       setPageCount(0);
                       setIsComplete(false);
                       setConvertedImages([]);
                     }}
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="secondary"
+                    className="inline-flex items-center justify-center"
                   >
                     <ArrowLeft className="mr-2 h-5 w-5" />
                     Convert Another PDF
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -416,10 +419,11 @@ const PDFToImage = () => {
                     </div>
                     
                     <div className="mt-8 flex justify-end">
-                      <button
+                      <Button
                         onClick={convertPDF}
                         disabled={isProcessing}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70 transition-colors px-8 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                        variant="default"
+                        className="inline-flex items-center justify-center"
                       >
                         {isProcessing ? (
                           <>
@@ -432,7 +436,7 @@ const PDFToImage = () => {
                             Convert to {format.toUpperCase()}
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
