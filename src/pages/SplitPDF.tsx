@@ -191,17 +191,42 @@ const SplitPDF = () => {
       return;
     }
     
+    // For better browser compatibility, we'll use a different approach
+    const downloadSingle = (file: { name: string, data: Uint8Array }, index: number) => {
+      try {
+        // Create blob with proper MIME type
+        const blob = new Blob([file.data], { type: "application/pdf" });
+        
+        // Create a download link element
+        const downloadLink = document.createElement("a");
+        downloadLink.href = window.URL.createObjectURL(blob);
+        downloadLink.download = file.name;
+        
+        // This is important for Firefox
+        document.body.appendChild(downloadLink);
+        
+        // Trigger the download
+        downloadLink.click();
+        
+        // Clean up
+        setTimeout(() => {
+          window.URL.revokeObjectURL(downloadLink.href);
+          document.body.removeChild(downloadLink);
+          console.log(`Downloaded file ${index + 1}/${splitFiles.length}: ${file.name}`);
+        }, 100);
+      } catch (error) {
+        console.error("Error downloading file:", error);
+        toast({
+          title: "Download Error",
+          description: `Failed to download ${file.name}. Please try again.`,
+          variant: "destructive",
+        });
+      }
+    };
+    
     // If there's just one file, download it directly
     if (splitFiles.length === 1) {
-      const blob = new Blob([splitFiles[0].data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = splitFiles[0].name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadSingle(splitFiles[0], 0);
       
       toast({
         title: "Download Started",
@@ -210,7 +235,7 @@ const SplitPDF = () => {
       return;
     }
     
-    // For multiple files, download each one with a small delay
+    // For multiple files, download each one with a delay
     toast({
       title: "Downloads Starting",
       description: `Downloading ${splitFiles.length} split PDF files.`,
@@ -218,19 +243,8 @@ const SplitPDF = () => {
     
     splitFiles.forEach((file, index) => {
       setTimeout(() => {
-        const blob = new Blob([file.data], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        // Log for debugging
-        console.log(`Downloaded file ${index + 1}/${splitFiles.length}: ${file.name}`);
-      }, index * 800); // Increase delay between downloads to prevent browser blocking
+        downloadSingle(file, index);
+      }, index * 1000); // 1 second delay between downloads to prevent browser blocking
     });
   };
 
@@ -282,7 +296,7 @@ const SplitPDF = () => {
         
         results.push({
           name: fileName,
-          data: pdfBytes
+          data: new Uint8Array(pdfBytes)
         });
         
         console.log(`Created PDF with ${selectedPages.length} selected pages`);
@@ -319,7 +333,7 @@ const SplitPDF = () => {
           
           results.push({
             name: fileName,
-            data: pdfBytes
+            data: new Uint8Array(pdfBytes)
           });
         }
       } else {
@@ -340,7 +354,7 @@ const SplitPDF = () => {
           
           results.push({
             name: fileName,
-            data: pdfBytes
+            data: new Uint8Array(pdfBytes)
           });
         }
       }
