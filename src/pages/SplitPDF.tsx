@@ -6,6 +6,7 @@ import FileUploader from "@/components/FileUploader";
 import { Loader2, Scissors, Download, ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { PDFDocument } from "pdf-lib";
 
 const SplitPDF = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -15,20 +16,41 @@ const SplitPDF = () => {
   const [splitEveryN, setSplitEveryN] = useState<number>(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [splitFiles, setSplitFiles] = useState<{ name: string, data: Uint8Array }[]>([]);
   const { toast } = useToast();
 
-  const handleFileSelected = (selectedFiles: File[]) => {
+  const handleFileSelected = async (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) {
       setFile(null);
       setPageCount(0);
       return;
     }
     
-    setFile(selectedFiles[0]);
-    // In a real app, we would extract the page count from the PDF
-    // For this demo, we'll simulate a page count
-    setPageCount(Math.floor(Math.random() * 15) + 5);
+    const selectedFile = selectedFiles[0];
+    setFile(selectedFile);
     setIsComplete(false);
+    
+    try {
+      // Extract the actual page count from the PDF
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      const actualPageCount = pdfDoc.getPageCount();
+      setPageCount(actualPageCount);
+      
+      toast({
+        title: "PDF Loaded",
+        description: `Successfully loaded PDF with ${actualPageCount} pages.`,
+      });
+    } catch (error) {
+      console.error("Error loading PDF:", error);
+      toast({
+        title: "Error loading PDF",
+        description: "Could not load the PDF file. It might be corrupted or password-protected.",
+        variant: "destructive",
+      });
+      setFile(null);
+      setPageCount(0);
+    }
   };
 
   const validatePageRanges = (): boolean => {
@@ -83,7 +105,7 @@ const SplitPDF = () => {
     return true;
   };
 
-  const splitPDF = () => {
+  const splitPDF = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -98,24 +120,140 @@ const SplitPDF = () => {
     }
     
     setIsProcessing(true);
+    setSplitFiles([]);
     
-    // Simulate processing delay
-    setTimeout(() => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(arrayBuffer);
+      
+      if (splitMethod === "ranges") {
+        // Process range splitting
+        const ranges = pageRanges.split(",").map(r => r.trim());
+        const splitResults = [];
+        
+        for (let i = 0; i < ranges.length; i++) {
+          const range = ranges[i];
+          let pageIndices = [];
+          
+          if (range.includes("-")) {
+            const [start, end] = range.split("-").map(Number);
+            for (let j = start - 1; j < end; j++) {
+              pageIndices.push(j);
+            }
+          } else {
+            pageIndices.push(Number(range) - 1);
+          }
+          
+          const newPdfDoc = await PDFDocument.create();
+          const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
+          copiedPages.forEach(page => newPdfDoc.addPage(page));
+          
+          const pdfBytes = await newPdfDoc.save();
+          
+          let fileName = `${file.name.replace('.pdf', '')}_pages_`;
+          if (range.includes("-")) {
+            fileName += range.replace("-", "to");
+          } else {
+            fileName += range;
+          }
+          fileName += ".pdf";
+          
+          splitResults.push({
+            name: fileName,
+            data: pdfBytes
+          });
+        }
+        
+        setSplitFiles(splitResults);
+      } else {
+        // Process "every N pages" splitting
+        const pageIndices = pdfDoc.getPageIndices();
+        const splitResults = [];
+        
+        for (let i = 0; i < pageIndices.length; i += splitEveryN) {
+          const newPdfDoc = await PDFDocument.create();
+          const pageIndicesToCopy = pageIndices.slice(i, i + splitEveryN);
+          const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndicesToCopy);
+          copiedPages.forEach(page => newPdfDoc.addPage(page));
+          
+          const pdfBytes = await newPdfDoc.save();
+          
+          const startPage = i + 1;
+          const endPage = Math.min(i + splitEveryN, pageIndices.length);
+          const fileName = `${file.name.replace('.pdf', '')}_${startPage}to${endPage}.pdf`;
+          
+          splitResults.push({
+            name: fileName,
+            data: pdfBytes
+          });
+        }
+        
+        setSplitFiles(splitResults);
+      }
+      
       setIsProcessing(false);
       setIsComplete(true);
       toast({
         title: "PDF Successfully Split!",
-        description: "Your file has been split according to your specifications.",
+        description: `Your PDF has been split into ${splitFiles.length} files.`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error splitting PDF:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Error splitting PDF",
+        description: "An error occurred while splitting the PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadSplitPDFs = () => {
-    toast({
-      title: "Download Started",
-      description: "Your split PDFs are downloading.",
+    if (splitFiles.length === 0) {
+      toast({
+        title: "No files to download",
+        description: "There are no split PDF files to download.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If there's just one file, download it directly
+    if (splitFiles.length === 1) {
+      const url = URL.createObjectURL(new Blob([splitFiles[0].data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = splitFiles[0].name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download Started",
+        description: `Downloading ${splitFiles[0].name}`,
+      });
+      return;
+    }
+    
+    // For multiple files, download each one with a small delay
+    splitFiles.forEach((file, index) => {
+      setTimeout(() => {
+        const url = URL.createObjectURL(new Blob([file.data], { type: "application/pdf" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, index * 500); // 500ms delay between downloads to prevent browser blocking
     });
-    // In a real app, this would be a link to download the split PDF files
+    
+    toast({
+      title: "Downloads Started",
+      description: `Downloading ${splitFiles.length} split PDF files.`,
+    });
   };
 
   return (
@@ -152,7 +290,7 @@ const SplitPDF = () => {
                 </div>
                 <h2 className="text-2xl font-medium mb-4">Your PDF Has Been Split!</h2>
                 <p className="text-muted-foreground mb-8">
-                  The PDF has been successfully split according to your specifications.
+                  The PDF has been successfully split into {splitFiles.length} separate file(s).
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                   <button 
@@ -169,6 +307,7 @@ const SplitPDF = () => {
                       setPageRanges("");
                       setSplitEveryN(1);
                       setIsComplete(false);
+                      setSplitFiles([]);
                     }}
                     className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
                   >
