@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -10,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjs from 'pdfjs-dist';
 
-// Initialize pdf.js worker
-const pdfjsWorkerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorkerSrc;
+// Set up the worker source
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url,
+).toString();
 
 type ImageFormat = "jpg" | "png" | "webp";
 type DPI = 72 | 150 | 300;
@@ -48,14 +49,17 @@ const PDFToImage = () => {
     setPagePreviews([]);
     
     try {
+      console.log("Reading file as ArrayBuffer");
       const arrayBuffer = await selectedFile.arrayBuffer();
       setPdfArrayBuffer(arrayBuffer);
       
+      console.log("Loading PDF document");
       const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       const actualPageCount = pdf.numPages;
       setPageCount(actualPageCount);
       
+      console.log(`PDF loaded with ${actualPageCount} pages`);
       generatePagePreviews(arrayBuffer);
       
       toast({
@@ -190,6 +194,8 @@ const PDFToImage = () => {
           return;
         }
         
+        console.log(`Starting conversion of page ${pageNum} to ${format}`);
+        
         // Load the PDF page with pdf.js
         const loadingTask = pdfjs.getDocument({ data: pdfArrayBuffer });
         const pdf = await loadingTask.promise;
@@ -215,8 +221,12 @@ const PDFToImage = () => {
         context.fillStyle = 'white';
         context.fillRect(0, 0, canvas.width, canvas.height);
         
+        console.log(`Rendering page ${pageNum} to canvas`);
+        
         // Render the PDF page to the canvas
         await page.render({ canvasContext: context, viewport }).promise;
+        
+        console.log(`Page ${pageNum} rendered, converting to ${format}`);
         
         // Convert canvas to blob of desired format
         const mimeType = format === 'jpg' ? 'image/jpeg' : 
@@ -224,8 +234,10 @@ const PDFToImage = () => {
         
         canvas.toBlob((blob) => {
           if (blob) {
+            console.log(`Successfully converted page ${pageNum} to ${format}`);
             resolve(blob);
           } else {
+            console.error(`Failed to convert page ${pageNum} to ${format}`);
             reject(new Error(`Failed to convert page ${pageNum} to ${format}`));
           }
         }, mimeType, format === 'jpg' ? 0.95 : undefined);
