@@ -37,6 +37,7 @@ const SplitPDF = () => {
     const selectedFile = selectedFiles[0];
     setFile(selectedFile);
     setIsComplete(false);
+    setSplitFiles([]);
     setPagePreviews([]);
     setSelectedPages([]);
     
@@ -200,11 +201,12 @@ const SplitPDF = () => {
     
     try {
       const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
+      const results = [];
       
       if (splitMethod === "selected") {
         // Process selected pages
         const newPdfDoc = await PDFDocument.create();
-        const pageIndices = selectedPages.map(p => p);
+        const pageIndices = selectedPages;
         const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
         copiedPages.forEach(page => newPdfDoc.addPage(page));
         
@@ -216,14 +218,13 @@ const SplitPDF = () => {
         
         const fileName = `${file.name.replace('.pdf', '')}_${pageDescription}.pdf`;
         
-        setSplitFiles([{
+        results.push({
           name: fileName,
           data: pdfBytes
-        }]);
+        });
       } else if (splitMethod === "ranges") {
         // Process range splitting
         const ranges = pageRanges.split(",").map(r => r.trim());
-        const splitResults = [];
         
         for (let i = 0; i < ranges.length; i++) {
           const range = ranges[i];
@@ -252,17 +253,14 @@ const SplitPDF = () => {
           }
           fileName += ".pdf";
           
-          splitResults.push({
+          results.push({
             name: fileName,
             data: pdfBytes
           });
         }
-        
-        setSplitFiles(splitResults);
       } else {
         // Process "every N pages" splitting
         const pageIndices = pdfDoc.getPageIndices();
-        const splitResults = [];
         
         for (let i = 0; i < pageIndices.length; i += splitEveryN) {
           const newPdfDoc = await PDFDocument.create();
@@ -276,20 +274,19 @@ const SplitPDF = () => {
           const endPage = Math.min(i + splitEveryN, pageIndices.length);
           const fileName = `${file.name.replace('.pdf', '')}_${startPage}to${endPage}.pdf`;
           
-          splitResults.push({
+          results.push({
             name: fileName,
             data: pdfBytes
           });
         }
-        
-        setSplitFiles(splitResults);
       }
       
+      setSplitFiles(results);
       setIsProcessing(false);
       setIsComplete(true);
       toast({
         title: "PDF Successfully Split!",
-        description: `Your PDF has been split into ${splitFiles.length} files.`,
+        description: `Your PDF has been split into ${results.length} files.`,
       });
     } catch (error) {
       console.error("Error splitting PDF:", error);
@@ -314,7 +311,8 @@ const SplitPDF = () => {
     
     // If there's just one file, download it directly
     if (splitFiles.length === 1) {
-      const url = URL.createObjectURL(new Blob([splitFiles[0].data], { type: "application/pdf" }));
+      const blob = new Blob([splitFiles[0].data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = splitFiles[0].name;
@@ -333,7 +331,8 @@ const SplitPDF = () => {
     // For multiple files, download each one with a small delay
     splitFiles.forEach((file, index) => {
       setTimeout(() => {
-        const url = URL.createObjectURL(new Blob([file.data], { type: "application/pdf" }));
+        const blob = new Blob([file.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = file.name;
@@ -457,11 +456,15 @@ const SplitPDF = () => {
                                 }`}
                                 onClick={() => splitMethod === "selected" && togglePageSelection(index)}
                               >
-                                <img 
-                                  src={preview} 
-                                  alt={`Page ${index + 1}`} 
-                                  className="w-full h-auto object-contain"
-                                />
+                                {/* Embed PDF preview as iframe instead of img for better rendering */}
+                                <div className="w-full aspect-[3/4] bg-gray-50">
+                                  <iframe 
+                                    src={preview} 
+                                    title={`Page ${index + 1}`} 
+                                    className="w-full h-full"
+                                    frameBorder="0"
+                                  ></iframe>
+                                </div>
                                 <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-xs p-1 text-center">
                                   Page {index + 1}
                                 </div>
