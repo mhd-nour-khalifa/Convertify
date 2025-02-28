@@ -64,19 +64,35 @@ const MergePDF = () => {
       
       // Process each PDF file
       for (const file of files) {
-        // Convert the File object to ArrayBuffer
-        const fileArrayBuffer = await file.arrayBuffer();
-        
-        // Load the PDF
-        const pdfDoc = await PDFDocument.load(fileArrayBuffer);
-        
-        // Copy all pages from the current PDF to the merged PDF
-        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        
-        // Add the copied pages to the merged PDF
-        copiedPages.forEach(page => {
-          mergedPdf.addPage(page);
-        });
+        try {
+          // Convert the File object to ArrayBuffer
+          const fileArrayBuffer = await file.arrayBuffer();
+          
+          // Load the PDF
+          const pdfDoc = await PDFDocument.load(fileArrayBuffer);
+          
+          // Copy all pages from the current PDF to the merged PDF
+          const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+          
+          // Add the copied pages to the merged PDF
+          copiedPages.forEach(page => {
+            mergedPdf.addPage(page);
+          });
+          
+          console.log(`Successfully added ${copiedPages.length} pages from ${file.name}`);
+        } catch (fileError) {
+          console.error(`Error processing file ${file.name}:`, fileError);
+          toast({
+            title: "Error processing file",
+            description: `Could not process ${file.name}. The file might be corrupted or password-protected.`,
+            variant: "destructive"
+          });
+        }
+      }
+      
+      // Check if we have any pages in the merged document
+      if (mergedPdf.getPageCount() === 0) {
+        throw new Error("No valid pages were found in the provided PDF files");
       }
       
       // Serialize the merged PDF to bytes
@@ -90,7 +106,7 @@ const MergePDF = () => {
       setIsComplete(true);
       toast({
         title: "PDFs Successfully Merged!",
-        description: "Your files have been combined into one PDF document.",
+        description: `Combined ${mergedPdf.getPageCount()} pages from ${files.length} PDF files.`,
       });
     } catch (error) {
       console.error("PDF merge error:", error);
