@@ -191,29 +191,51 @@ const SplitPDF = () => {
       return;
     }
     
-    // For better browser compatibility, we'll use a different approach
     const downloadSingle = (file: { name: string, data: Uint8Array }, index: number) => {
       try {
         // Create blob with proper MIME type
         const blob = new Blob([file.data], { type: "application/pdf" });
         
-        // Create a download link element
-        const downloadLink = document.createElement("a");
-        downloadLink.href = window.URL.createObjectURL(blob);
-        downloadLink.download = file.name;
+        // Create a download URL
+        const url = window.URL.createObjectURL(blob);
         
-        // This is important for Firefox
-        document.body.appendChild(downloadLink);
+        // Create an invisible iframe for more reliable downloads
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
         
-        // Trigger the download
-        downloadLink.click();
+        // Open the URL in the iframe context
+        if (iframe.contentWindow) {
+          iframe.contentWindow.location.href = url;
         
-        // Clean up
-        setTimeout(() => {
-          window.URL.revokeObjectURL(downloadLink.href);
-          document.body.removeChild(downloadLink);
-          console.log(`Downloaded file ${index + 1}/${splitFiles.length}: ${file.name}`);
-        }, 100);
+          // Create a fallback direct download link in case iframe approach fails
+          const downloadLink = document.createElement("a");
+          downloadLink.href = url;
+          downloadLink.download = file.name;
+          downloadLink.style.display = 'none';
+          document.body.appendChild(downloadLink);
+          
+          // Trigger download
+          downloadLink.click();
+          
+          // Clean up
+          setTimeout(() => {
+            // Remove elements
+            document.body.removeChild(iframe);
+            document.body.removeChild(downloadLink);
+            
+            // Release object URL
+            window.URL.revokeObjectURL(url);
+            
+            console.log(`Downloaded file ${index + 1}/${splitFiles.length}: ${file.name}`);
+            
+            // Show success toast for each file
+            toast({
+              title: "Download Complete",
+              description: `File ${index + 1}: ${file.name} has been downloaded.`,
+            });
+          }, 2000);
+        }
       } catch (error) {
         console.error("Error downloading file:", error);
         toast({
@@ -244,7 +266,7 @@ const SplitPDF = () => {
     splitFiles.forEach((file, index) => {
       setTimeout(() => {
         downloadSingle(file, index);
-      }, index * 1000); // 1 second delay between downloads to prevent browser blocking
+      }, index * 2000); // 2 second delay between downloads to prevent browser blocking
     });
   };
 
