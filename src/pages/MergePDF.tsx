@@ -7,6 +7,7 @@ import { ArrowLeft, MoveDown, MoveUp, Trash, Combine, ChevronLeft, ChevronRight,
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { PDFDocument } from 'pdf-lib';
 
 const MergePDF = () => {
   const [files, setFiles] = useState<File[]>([]);
@@ -58,56 +59,31 @@ const MergePDF = () => {
     setIsProcessing(true);
     
     try {
-      // In a real implementation, we would use a library like pdf-lib to merge PDFs
-      // For demonstration purposes, we're creating a sample PDF with text content
+      // Create a new PDF document
+      const mergedPdf = await PDFDocument.create();
       
-      // Create a more substantial PDF with visible text content
-      const pdfContent = `%PDF-1.7
-1 0 obj
-<</Type/Catalog/Pages 2 0 R>>
-endobj
-2 0 obj
-<</Type/Pages/Kids[3 0 R]/Count 1>>
-endobj
-3 0 obj
-<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 5 0 R>>/ProcSet[/PDF/Text]>>/MediaBox[0 0 612 792]/Contents 4 0 R>>
-endobj
-4 0 obj
-<</Length 210>>
-stream
-BT
-/F1 24 Tf
-72 720 Td
-(PDF Merger Demo Document) Tj
-0 -36 Td
-/F1 12 Tf
-(This is a demonstration of merged PDF files.) Tj
-0 -24 Td
-(In a production environment, the actual content from your) Tj
-0 -24 Td
-(uploaded PDF files would be merged here.) Tj
-ET
-endstream
-endobj
-5 0 obj
-<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>
-endobj
-xref
-0 6
-0000000000 65535 f
-0000000009 00000 n
-0000000056 00000 n
-0000000111 00000 n
-0000000232 00000 n
-0000000493 00000 n
-trailer
-<</Size 6/Root 1 0 R>>
-startxref
-555
-%%EOF`;
+      // Process each PDF file
+      for (const file of files) {
+        // Convert the File object to ArrayBuffer
+        const fileArrayBuffer = await file.arrayBuffer();
+        
+        // Load the PDF
+        const pdfDoc = await PDFDocument.load(fileArrayBuffer);
+        
+        // Copy all pages from the current PDF to the merged PDF
+        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+        
+        // Add the copied pages to the merged PDF
+        copiedPages.forEach(page => {
+          mergedPdf.addPage(page);
+        });
+      }
       
-      // Convert the string to a Blob and create an Object URL
-      const blob = new Blob([pdfContent], { type: 'application/pdf' });
+      // Serialize the merged PDF to bytes
+      const mergedPdfBytes = await mergedPdf.save();
+      
+      // Convert to Blob and create URL
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
       setMergedPdfUrl(url);
@@ -117,12 +93,12 @@ startxref
         description: "Your files have been combined into one PDF document.",
       });
     } catch (error) {
+      console.error("PDF merge error:", error);
       toast({
         title: "Error",
         description: "Failed to merge PDF files. Please try again.",
         variant: "destructive"
       });
-      console.error("PDF merge error:", error);
     } finally {
       setIsProcessing(false);
     }
@@ -140,7 +116,10 @@ startxref
 
     // Create a download link for the merged PDF
     const downloadLink = document.createElement("a");
-    const filename = "merged-document.pdf";
+    // Generate a filename based on the original files
+    const filename = files.length > 0 
+      ? `merged-${files[0].name.split('.')[0]}.pdf` 
+      : "merged-document.pdf";
     
     downloadLink.href = mergedPdfUrl;
     downloadLink.download = filename;
