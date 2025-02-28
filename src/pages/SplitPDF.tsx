@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -182,6 +181,59 @@ const SplitPDF = () => {
     return true;
   };
 
+  const downloadSplitPDFs = () => {
+    if (splitFiles.length === 0) {
+      toast({
+        title: "No files to download",
+        description: "There are no split PDF files to download.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // If there's just one file, download it directly
+    if (splitFiles.length === 1) {
+      const blob = new Blob([splitFiles[0].data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = splitFiles[0].name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Download Started",
+        description: `Downloading ${splitFiles[0].name}`,
+      });
+      return;
+    }
+    
+    // For multiple files, download each one with a small delay
+    toast({
+      title: "Downloads Starting",
+      description: `Downloading ${splitFiles.length} split PDF files.`,
+    });
+    
+    splitFiles.forEach((file, index) => {
+      setTimeout(() => {
+        const blob = new Blob([file.data], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        // Log for debugging
+        console.log(`Downloaded file ${index + 1}/${splitFiles.length}: ${file.name}`);
+      }, index * 800); // Increase delay between downloads to prevent browser blocking
+    });
+  };
+
   const splitPDF = async () => {
     if (!file || !pdfArrayBuffer) {
       toast({
@@ -205,6 +257,16 @@ const SplitPDF = () => {
       
       if (splitMethod === "selected") {
         // Process selected pages
+        if (selectedPages.length === 0) {
+          toast({
+            title: "No pages selected",
+            description: "Please select at least one page to split",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
         const newPdfDoc = await PDFDocument.create();
         const pageIndices = selectedPages;
         const copiedPages = await newPdfDoc.copyPages(pdfDoc, pageIndices);
@@ -222,6 +284,8 @@ const SplitPDF = () => {
           name: fileName,
           data: pdfBytes
         });
+        
+        console.log(`Created PDF with ${selectedPages.length} selected pages`);
       } else if (splitMethod === "ranges") {
         // Process range splitting
         const ranges = pageRanges.split(",").map(r => r.trim());
@@ -284,9 +348,12 @@ const SplitPDF = () => {
       setSplitFiles(results);
       setIsProcessing(false);
       setIsComplete(true);
+      
+      console.log(`Split complete: Created ${results.length} PDF files`);
+      
       toast({
         title: "PDF Successfully Split!",
-        description: `Your PDF has been split into ${results.length} files.`,
+        description: `Your PDF has been split into ${results.length} file(s).`,
       });
     } catch (error) {
       console.error("Error splitting PDF:", error);
@@ -297,56 +364,6 @@ const SplitPDF = () => {
         variant: "destructive",
       });
     }
-  };
-
-  const downloadSplitPDFs = () => {
-    if (splitFiles.length === 0) {
-      toast({
-        title: "No files to download",
-        description: "There are no split PDF files to download.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // If there's just one file, download it directly
-    if (splitFiles.length === 1) {
-      const blob = new Blob([splitFiles[0].data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = splitFiles[0].name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Download Started",
-        description: `Downloading ${splitFiles[0].name}`,
-      });
-      return;
-    }
-    
-    // For multiple files, download each one with a small delay
-    splitFiles.forEach((file, index) => {
-      setTimeout(() => {
-        const blob = new Blob([file.data], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, index * 500); // 500ms delay between downloads to prevent browser blocking
-    });
-    
-    toast({
-      title: "Downloads Started",
-      description: `Downloading ${splitFiles.length} split PDF files.`,
-    });
   };
 
   return (
@@ -386,14 +403,15 @@ const SplitPDF = () => {
                   The PDF has been successfully split into {splitFiles.length} separate file(s).
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <button 
+                  <Button 
                     onClick={downloadSplitPDFs}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="default"
+                    className="inline-flex items-center justify-center"
                   >
                     <Download className="mr-2 h-5 w-5" />
-                    Download Split PDFs
-                  </button>
-                  <button 
+                    Download Split PDF{splitFiles.length > 1 ? "s" : ""}
+                  </Button>
+                  <Button 
                     onClick={() => {
                       setFile(null);
                       setPageCount(0);
@@ -405,11 +423,12 @@ const SplitPDF = () => {
                       setPagePreviews([]);
                       setPdfArrayBuffer(null);
                     }}
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="secondary"
+                    className="inline-flex items-center justify-center"
                   >
                     <ArrowLeft className="mr-2 h-5 w-5" />
                     Split Another PDF
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
