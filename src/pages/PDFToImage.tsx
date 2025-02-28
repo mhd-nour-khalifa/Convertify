@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -43,7 +42,6 @@ const PDFToImage = () => {
     setPagePreviews([]);
     
     try {
-      // Extract the actual page count from the PDF
       const arrayBuffer = await selectedFile.arrayBuffer();
       setPdfArrayBuffer(arrayBuffer);
       
@@ -51,7 +49,6 @@ const PDFToImage = () => {
       const actualPageCount = pdfDoc.getPageCount();
       setPageCount(actualPageCount);
       
-      // Generate page previews
       generatePagePreviews(arrayBuffer);
       
       toast({
@@ -78,10 +75,9 @@ const PDFToImage = () => {
       const pdfDoc = await PDFDocument.load(arrayBuffer);
       const pageCount = pdfDoc.getPageCount();
       
-      // We'll generate page previews in batches to avoid browser hanging
       const batchSize = 5;
       for (let i = 0; i < pageCount; i += batchSize) {
-        await new Promise(resolve => setTimeout(resolve, 0)); // Let the UI breathe
+        await new Promise(resolve => setTimeout(resolve, 0));
         
         const batchEnd = Math.min(i + batchSize, pageCount);
         for (let j = i; j < batchEnd; j++) {
@@ -93,7 +89,6 @@ const PDFToImage = () => {
           previewsArray[j] = pdfBytes;
         }
         
-        // Update previews array as we go
         setPagePreviews([...previewsArray]);
       }
       
@@ -159,147 +154,48 @@ const PDFToImage = () => {
     return true;
   };
 
-  // Function to convert PDF to image using canvas
-  const convertPDFPageToImage = async (pdfDataUri: string, format: ImageFormat): Promise<Blob> => {
+  const convertPDFPageToImage = async (pdfDataUri: string, format: ImageFormat, pageNum: number): Promise<Blob> => {
     return new Promise((resolve, reject) => {
-      const iframe = document.createElement('iframe');
-      iframe.style.visibility = 'hidden';
-      iframe.style.position = 'absolute';
-      iframe.style.width = '800px';
-      iframe.style.height = '1000px';
-      document.body.appendChild(iframe);
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
       
-      iframe.onload = () => {
-        setTimeout(() => {
-          try {
-            if (!iframe.contentWindow) {
-              document.body.removeChild(iframe);
-              reject(new Error("Cannot access iframe content"));
-              return;
-            }
-            
-            const canvas = document.createElement('canvas');
-            const pdfContainer = iframe.contentDocument?.body;
-            
-            if (!pdfContainer) {
-              document.body.removeChild(iframe);
-              reject(new Error("PDF container not found"));
-              return;
-            }
-            
-            // Scale factor based on DPI
-            const scale = dpi / 72;
-            
-            // Get the PDF dimensions - for simplicity we use standard dimensions
-            // In a real-world app, you'd extract actual dimensions from the PDF
-            const width = 800 * scale;
-            const height = 1000 * scale;
-            
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            
-            if (!ctx) {
-              document.body.removeChild(iframe);
-              reject(new Error("Could not get canvas context"));
-              return;
-            }
-            
-            // Set white background
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, width, height);
-            
-            // Scale the rendering
-            ctx.scale(scale, scale);
-            
-            // Draw the PDF container (this captures what's visible in the iframe)
-            ctx.drawWindow(iframe.contentWindow, 0, 0, 800, 1000, 'white');
-            
-            // Convert canvas to blob of the desired format
-            const mimeType = format === 'jpg' ? 'image/jpeg' : 
-                             format === 'png' ? 'image/png' : 'image/webp';
-            
-            canvas.toBlob((blob) => {
-              document.body.removeChild(iframe);
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error(`Failed to convert to ${format}`));
-              }
-            }, mimeType, 0.95);
-          } catch (error) {
-            document.body.removeChild(iframe);
-            reject(error);
-          }
-        }, 1000); // Give time for PDF to render
-      };
+      if (!ctx) {
+        reject(new Error("Could not get canvas context"));
+        return;
+      }
       
-      iframe.src = pdfDataUri;
-    });
-  };
-
-  // Alternative approach using HTML2Canvas (simulation for demo)
-  const simulateImageConversion = async (pdfDataUri: string, format: ImageFormat): Promise<{ dataUrl: string, blob: Blob }> => {
-    // This is a simplified version since we can't actually convert PDF to image without additional libraries
-    // In a real app, you'd use a proper PDF rendering library
-    
-    // Create a blob of the correct mime type - this is just a simulation
-    const mimeType = format === 'jpg' ? 'image/jpeg' : 
-                     format === 'png' ? 'image/png' : 'image/webp';
-    
-    // For demo purposes, we'll create a simple canvas with some text
-    const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 1000;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) {
-      throw new Error("Could not get canvas context");
-    }
-    
-    // Set background
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Add some text
-    ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText(`PDF converted to ${format.toUpperCase()}`, 50, 50);
-    ctx.fillText(`Resolution: ${dpi} DPI`, 50, 80);
-    
-    // Fetch the PDF and draw its first preview frame on the canvas
-    // This is just for visualization, not a real conversion
-    const img = new Image();
-    
-    // Wait for the image to load
-    await new Promise<void>((resolve) => {
       img.onload = () => {
-        // Draw the PDF preview at the center of the canvas
-        const scale = 0.5;
-        const x = (canvas.width - img.width * scale) / 2;
-        const y = (canvas.height - img.height * scale) / 2;
-        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-        resolve();
+        try {
+          const scale = dpi / 72;
+          canvas.width = img.width * scale;
+          canvas.height = img.height * scale;
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0);
+          
+          const mimeType = format === 'jpg' ? 'image/jpeg' : 
+                           format === 'png' ? 'image/png' : 'image/webp';
+          
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error(`Failed to convert page ${pageNum} to ${format}`));
+            }
+          }, mimeType, format === 'jpg' ? 0.95 : undefined);
+        } catch (error) {
+          reject(error);
+        }
       };
-      img.src = pdfDataUri; // This doesn't actually convert but shows PDF preview
+      
+      img.onerror = () => {
+        reject(new Error(`Failed to load PDF page ${pageNum} for conversion`));
+      };
+      
+      img.src = pdfDataUri;
     });
-    
-    // Get the data URL and create a blob
-    const dataUrl = canvas.toDataURL(mimeType, 0.95);
-    
-    // Convert data URL to blob
-    const byteString = atob(dataUrl.split(',')[1]);
-    const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    
-    const blob = new Blob([ab], { type: mimeString });
-    
-    return { dataUrl, blob };
   };
 
   const convertPDF = async () => {
@@ -317,9 +213,9 @@ const PDFToImage = () => {
     }
     
     setIsProcessing(true);
+    setConvertedImages([]);
     
     try {
-      // Determine which pages to convert
       const pagesToConvert = selectedPages === "all" 
         ? Array.from({ length: pageCount }, (_, i) => i + 1)
         : [];
@@ -338,49 +234,48 @@ const PDFToImage = () => {
         }
       }
       
-      // Remove duplicates and sort
       const uniquePages = [...new Set(pagesToConvert)].sort((a, b) => a - b);
       
-      // Convert PDF pages to images using pdf-lib
       const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
       const convertedImagesResult = [];
       
-      // Process pages in batches to avoid UI freezing
-      const batchSize = 3;
+      const batchSize = 2;
       for (let i = 0; i < uniquePages.length; i += batchSize) {
-        await new Promise(resolve => setTimeout(resolve, 0)); // Let the UI breathe
-        
         const batchPages = uniquePages.slice(i, i + batchSize);
         
-        // Process batch in parallel
-        const batchResults = await Promise.all(batchPages.map(async (pageNum) => {
-          // Create a new PDF with just this page
+        const batchPromises = batchPages.map(async (pageNum) => {
           const newPdfDoc = await PDFDocument.create();
           const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [pageNum - 1]);
           newPdfDoc.addPage(copiedPage);
           
-          // Save as data URI for preview
           const pdfBytes = await newPdfDoc.saveAsBase64({ dataUri: true });
           
-          // Convert PDF to image (simulation for demo)
-          const { dataUrl, blob } = await simulateImageConversion(pdfBytes, format);
-          
-          return {
-            page: pageNum,
-            thumbnail: dataUrl,
-            blob
-          };
-        }));
+          try {
+            const blob = await convertPDFPageToImage(pdfBytes, format, pageNum);
+            const thumbnail = URL.createObjectURL(blob);
+            return {
+              page: pageNum,
+              thumbnail,
+              blob
+            };
+          } catch (error) {
+            console.error(`Error converting page ${pageNum}:`, error);
+            throw error;
+          }
+        });
         
-        // Add batch results to the overall results
+        const batchResults = await Promise.all(batchPromises);
+        
         convertedImagesResult.push(...batchResults);
         
-        // Update state to show progress
         setConvertedImages([...convertedImagesResult]);
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       setIsProcessing(false);
       setIsComplete(true);
+      
       toast({
         title: "PDF Successfully Converted!",
         description: `Converted ${convertedImagesResult.length} pages to ${format.toUpperCase()} images.`,
@@ -388,6 +283,7 @@ const PDFToImage = () => {
     } catch (error) {
       console.error("Error converting PDF:", error);
       setIsProcessing(false);
+      
       toast({
         title: "Error converting PDF",
         description: "An error occurred while converting the PDF. Please try again.",
@@ -397,46 +293,65 @@ const PDFToImage = () => {
   };
 
   const downloadImage = (pageNumber: number, blob: Blob) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `page-${pageNumber}.${format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up the URL object
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-    
-    toast({
-      title: "Download Started",
-      description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
-    });
+    try {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `page-${pageNumber}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast({
+        title: "Download Started",
+        description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
+      });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not download the image. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadImages = () => {
-    // For small number of images, download them sequentially
     if (convertedImages.length > 0) {
       toast({
         title: "Download Started",
         description: `Your ${convertedImages.length} ${format.toUpperCase()} images are downloading.`,
       });
       
-      // Add a small delay between downloads to prevent browser blocking
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
           downloadImage(image.page, image.blob);
-        }, index * 300);
+        }, index * 500);
       });
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (convertedImages.length > 0) {
+        convertedImages.forEach(image => {
+          if (image.thumbnail) {
+            URL.revokeObjectURL(image.thumbnail);
+          }
+        });
+      }
+    };
+  }, [convertedImages]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -449,7 +364,6 @@ const PDFToImage = () => {
             <span className="text-foreground font-medium">PDF to Image</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Convert PDF to Images</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -470,7 +384,6 @@ const PDFToImage = () => {
                   </p>
                 </div>
                 
-                {/* Image Preview Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
                   {convertedImages.map((image) => (
                     <div key={image.page} className="bg-muted rounded-lg overflow-hidden">
@@ -521,7 +434,6 @@ const PDFToImage = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -533,7 +445,6 @@ const PDFToImage = () => {
                 
                 {file && pageCount > 0 && (
                   <div className="mt-8">
-                    {/* PDF Preview Section */}
                     {isGeneratingPreviews ? (
                       <div className="bg-card rounded-xl p-6 shadow-subtle mb-8">
                         <div className="flex flex-col items-center justify-center py-12">
@@ -571,7 +482,6 @@ const PDFToImage = () => {
                       </p>
                       
                       <div className="space-y-6">
-                        {/* Page Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Pages to Convert
@@ -618,7 +528,6 @@ const PDFToImage = () => {
                           </div>
                         </div>
                         
-                        {/* Format Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Image Format
@@ -660,7 +569,6 @@ const PDFToImage = () => {
                           </div>
                         </div>
                         
-                        {/* DPI Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Resolution (DPI)
@@ -727,7 +635,6 @@ const PDFToImage = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Convert PDF to Images</h3>
