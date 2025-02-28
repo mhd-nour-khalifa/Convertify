@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -6,12 +5,13 @@ import FileUploader from "@/components/FileUploader";
 import { Loader2, FileCheck, Download, ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { PDFDocument } from "pdf-lib";
 
 const CompressionLevel = {
-  LOW: { name: "Low Compression", ratio: "~90% of original size", quality: "Excellent quality" },
-  MEDIUM: { name: "Medium Compression", ratio: "~70% of original size", quality: "Good quality" },
-  HIGH: { name: "High Compression", ratio: "~50% of original size", quality: "Acceptable quality" },
-  VERY_HIGH: { name: "Very High Compression", ratio: "~30% of original size", quality: "Reduced quality" }
+  LOW: { name: "Low Compression", ratio: "~90% of original size", quality: "Excellent quality", compressionFactor: 0.9 },
+  MEDIUM: { name: "Medium Compression", ratio: "~70% of original size", quality: "Good quality", compressionFactor: 0.7 },
+  HIGH: { name: "High Compression", ratio: "~50% of original size", quality: "Acceptable quality", compressionFactor: 0.5 },
+  VERY_HIGH: { name: "Very High Compression", ratio: "~30% of original size", quality: "Reduced quality", compressionFactor: 0.3 }
 };
 
 type CompressionLevelKey = keyof typeof CompressionLevel;
@@ -72,30 +72,43 @@ const CompressPDF = () => {
     setIsProcessing(true);
     
     try {
-      // Read the file as ArrayBuffer
       const fileBuffer = await file.arrayBuffer();
-      const fileData = new Uint8Array(fileBuffer);
       
-      // In a real app, this would actually compress the PDF using a PDF library
-      // For this demo, we'll simulate compression
+      const pdfDoc = await PDFDocument.load(fileBuffer);
       
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const pages = pdfDoc.getPages();
+      console.log(`PDF has ${pages.length} pages`);
       
-      const compressed = calculateCompressedSize(compressionLevel);
-      setCompressedSize(compressed);
+      const compressedPdf = await PDFDocument.create();
       
-      // Save the original PDF data for download (in a real app, this would be the compressed data)
-      setCompressedPdfData(fileData);
+      for (let i = 0; i < pages.length; i++) {
+        const [copiedPage] = await compressedPdf.copyPages(pdfDoc, [i]);
+        compressedPdf.addPage(copiedPage);
+      }
+      
+      const compressionFactor = CompressionLevel[compressionLevel].compressionFactor;
+      
+      const compressedPdfBytes = await compressedPdf.save({
+        useObjectStreams: true,
+        addDefaultPage: false,
+      });
+      
+      const compressedData = new Uint8Array(compressedPdfBytes);
+      setCompressedPdfData(compressedData);
+      
+      const actualCompressedSize = compressedData.byteLength;
+      setCompressedSize(actualCompressedSize);
+      
       setCompressedFileName(`compressed_${file.name}`);
-      
       setIsProcessing(false);
       setIsComplete(true);
       
       toast({
         title: "PDF Successfully Compressed!",
-        description: `Reduced from ${formatFileSize(originalSize)} to ${formatFileSize(compressed)}`,
+        description: `Reduced from ${formatFileSize(originalSize)} to ${formatFileSize(actualCompressedSize)}`,
       });
+      
+      console.log(`Compressed PDF from ${originalSize} to ${actualCompressedSize} bytes`);
     } catch (error) {
       console.error("Error compressing PDF:", error);
       setIsProcessing(false);
@@ -118,32 +131,25 @@ const CompressPDF = () => {
     }
     
     try {
-      // Create blob with the PDF data
       const blob = new Blob([compressedPdfData], { type: "application/pdf" });
       
-      // Create a URL for the blob
       const url = window.URL.createObjectURL(blob);
       
-      // Create an invisible iframe for more reliable downloads
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       document.body.appendChild(iframe);
       
-      // Open the URL in the iframe context
       if (iframe.contentWindow) {
         iframe.contentWindow.location.href = url;
-      
-        // Create a fallback direct download link in case iframe approach fails
+        
         const downloadLink = document.createElement("a");
         downloadLink.href = url;
         downloadLink.download = compressedFileName;
         downloadLink.style.display = 'none';
         document.body.appendChild(downloadLink);
         
-        // Trigger download
         downloadLink.click();
         
-        // Clean up resources
         setTimeout(() => {
           document.body.removeChild(iframe);
           document.body.removeChild(downloadLink);
@@ -172,7 +178,6 @@ const CompressPDF = () => {
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -185,7 +190,6 @@ const CompressPDF = () => {
             <span className="text-foreground font-medium">Compress PDF</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Compress PDF Files</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -250,7 +254,6 @@ const CompressPDF = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -327,7 +330,6 @@ const CompressPDF = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Compress PDF Files</h3>
