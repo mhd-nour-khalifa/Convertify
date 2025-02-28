@@ -59,10 +59,27 @@ const MergePDF = () => {
     
     // Simulate processing delay
     setTimeout(() => {
-      // Create a simulated merged PDF for download (using a placeholder PDF)
-      const placeholderUrl = "data:application/pdf;base64,JVBERi0xLjcKJeLjz9MKNSAwIG9iago8PCAvVHlwZSAvWE9iamVjdCAvU3VidHlwZSAvSW1hZ2UgL1dpZHRoIDEyMDAgL0hlaWdodCA2MzAgL0NvbG9yU3BhY2UgWyAvSW5kZXhlZCAvRGV2aWNlUkdCIDI1NSA8PCAvTGVuZ3RoIDEzIDA+PiA+PiAvQml0c1BlckNvbXBvbmVudCA4IC9GaWx0ZXIgL0ZsYXRlRGVjb2RlIC9MZW5ndGggNiAwIFI+PgpzdHJlYW0KSCdtd3h3Lw==";
-
-      setMergedPdfUrl(placeholderUrl);
+      // Create a proper PDF file for download - this is a minimal valid PDF
+      const validPdfContent = `%PDF-1.4
+1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
+2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
+3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj
+xref
+0 4
+0000000000 65535 f
+0000000009 00000 n
+0000000052 00000 n
+0000000101 00000 n
+trailer<</Size 4/Root 1 0 R>>
+startxref
+178
+%%EOF`;
+      
+      // Convert the string to a Blob and create an Object URL
+      const blob = new Blob([validPdfContent], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      setMergedPdfUrl(url);
       setIsProcessing(false);
       setIsComplete(true);
       toast({
