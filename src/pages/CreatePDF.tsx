@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -86,87 +85,11 @@ const CreatePDF = () => {
       
       const pdfDoc = await PDFDocument.create();
       const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
       for (const file of files) {
-        // Create a new page for each file
         const page = pdfDoc.addPage([600, 800]);
         const fileType = getFileType(file.name);
         
-        // Add a header
-        page.drawText("File Conversion to PDF", {
-          x: 50,
-          y: 750,
-          size: 24,
-          font: helveticaBold,
-          color: rgb(0.1, 0.1, 0.7),
-        });
-        
-        // Draw a separator line
-        page.drawLine({
-          start: { x: 50, y: 740 },
-          end: { x: 550, y: 740 },
-          thickness: 2,
-          color: rgb(0.7, 0.7, 0.7),
-        });
-        
-        // File information section
-        page.drawText(`File Name:`, {
-          x: 50,
-          y: 700,
-          size: 14,
-          font: helveticaBold,
-        });
-        
-        page.drawText(file.name, {
-          x: 150,
-          y: 700,
-          size: 12,
-          font: helveticaFont,
-        });
-        
-        if (fileType) {
-          page.drawText(`File Type:`, {
-            x: 50,
-            y: 670,
-            size: 14,
-            font: helveticaBold,
-          });
-          
-          page.drawText(getFileTypeName(fileType), {
-            x: 150,
-            y: 670,
-            size: 12,
-            font: helveticaFont,
-          });
-          
-          page.drawText(`File Size:`, {
-            x: 50,
-            y: 640,
-            size: 14,
-            font: helveticaBold,
-          });
-          
-          page.drawText(`${(file.size / (1024 * 1024)).toFixed(2)} MB`, {
-            x: 150,
-            y: 640,
-            size: 12,
-            font: helveticaFont,
-          });
-        }
-        
-        // Add a preview box
-        page.drawRectangle({
-          x: 50,
-          y: 350,
-          width: 500,
-          height: 250,
-          borderColor: rgb(0.8, 0.8, 0.8),
-          borderWidth: 1,
-          color: rgb(0.95, 0.95, 0.95),
-        });
-        
-        // Content preview (simulated)
         if (fileType === "txt") {
           try {
             const reader = new FileReader();
@@ -175,38 +98,20 @@ const CreatePDF = () => {
               reader.readAsText(file);
             });
             
-            // Display first 500 characters of text content
-            const displayText = textContent.substring(0, 500) + (textContent.length > 500 ? "..." : "");
+            const lines = textContent.split('\n');
+            let yPosition = 750;
             
-            // Split text into lines for better display
-            const lines = displayText.split('\n');
-            let yPosition = 580;
-            
-            page.drawText("File Content Preview:", {
-              x: 60,
-              y: 610,
-              size: 14,
-              font: helveticaBold,
-            });
-            
-            for (let i = 0; i < Math.min(lines.length, 15); i++) {
-              page.drawText(lines[i].substring(0, 70), {
-                x: 60,
+            for (let i = 0; i < Math.min(lines.length, 40); i++) {
+              page.drawText(lines[i].substring(0, 80), {
+                x: 50,
                 y: yPosition - (i * 18),
                 size: 10,
                 font: helveticaFont,
-                color: rgb(0.2, 0.2, 0.2),
+                color: rgb(0, 0, 0),
               });
             }
           } catch (error) {
             console.error("Error reading text file:", error);
-            page.drawText("Error reading text content", {
-              x: 200,
-              y: 450,
-              size: 14,
-              font: helveticaFont,
-              color: rgb(0.8, 0.2, 0.2),
-            });
           }
         } else if (fileType === "jpg" || fileType === "png") {
           try {
@@ -230,9 +135,12 @@ const CreatePDF = () => {
               image = await pdfDoc.embedPng(imageBytes);
             }
             
-            // Calculate dimensions to fit in the preview box while maintaining aspect ratio
-            const maxWidth = 480;
-            const maxHeight = 230;
+            const pageWidth = page.getWidth();
+            const pageHeight = page.getHeight();
+            const margin = 50;
+            
+            const maxWidth = pageWidth - (margin * 2);
+            const maxHeight = pageHeight - (margin * 2);
             const imgWidth = image.width;
             const imgHeight = image.height;
             
@@ -249,59 +157,26 @@ const CreatePDF = () => {
               width = (imgWidth / imgHeight) * height;
             }
             
-            // Center the image in the preview box
-            const xPos = 50 + (500 - width) / 2;
-            const yPos = 350 + (250 - height) / 2;
+            const xPos = (pageWidth - width) / 2;
+            const yPos = (pageHeight - height) / 2;
             
             page.drawImage(image, {
               x: xPos,
-              y: yPos,
+              y: yPos - 50,
               width,
               height,
             });
           } catch (error) {
             console.error("Error embedding image:", error);
-            page.drawText("Image preview not available", {
-              x: 200,
-              y: 450,
-              size: 14,
-              font: helveticaFont,
-              color: rgb(0.8, 0.2, 0.2),
-            });
           }
         } else {
-          // For other file types, display a generic message
-          page.drawText(`Preview not available for ${fileType ? getFileTypeName(fileType) : "this file type"}`, {
-            x: 150,
-            y: 450,
+          page.drawText(`Content for ${file.name}`, {
+            x: 50,
+            y: 400,
             size: 14,
             font: helveticaFont,
           });
-          
-          page.drawText("File content will be preserved in the PDF", {
-            x: 150,
-            y: 420,
-            size: 12,
-            font: helveticaFont,
-          });
         }
-        
-        // Add footer
-        page.drawText("Created with PDF Tools", {
-          x: 250,
-          y: 50,
-          size: 10,
-          font: helveticaFont,
-          color: rgb(0.5, 0.5, 0.5),
-        });
-        
-        page.drawText(new Date().toLocaleDateString(), {
-          x: 500,
-          y: 50,
-          size: 8,
-          font: helveticaFont,
-          color: rgb(0.5, 0.5, 0.5),
-        });
       }
       
       const pdfBytes = await pdfDoc.save();
