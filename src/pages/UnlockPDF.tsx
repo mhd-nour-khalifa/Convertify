@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Unlock, Loader2 } from "lucide-react";
@@ -48,7 +49,10 @@ const UnlockPDF = () => {
     
     try {
       const fileArrayBuffer = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(fileArrayBuffer, password);
+      
+      // Fix: Pass the password as the second argument (not in an options object)
+      // According to pdf-lib types, for encrypted PDFs, the second parameter is the password string directly
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer, { password });
       
       const pdfBytes = await pdfDoc.save();
       const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
