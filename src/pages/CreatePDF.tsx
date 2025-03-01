@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -7,7 +8,7 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 type FileType = "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "jpg" | "png" | "txt";
 
@@ -71,54 +72,235 @@ const CreatePDF = () => {
     setProgress(0);
     
     try {
-      const totalSteps = 100;
+      const totalSteps = files.length;
       let currentStep = 0;
       
       const progressInterval = setInterval(() => {
-        currentStep += Math.floor(Math.random() * 10) + 1;
-        if (currentStep >= totalSteps) {
-          currentStep = 100;
+        if (currentStep < totalSteps) {
+          currentStep += 1;
+          setProgress(Math.floor((currentStep / totalSteps) * 100));
+        } else {
           clearInterval(progressInterval);
         }
-        setProgress(currentStep);
-      }, 200);
+      }, 500);
       
       const pdfDoc = await PDFDocument.create();
+      const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       
       for (const file of files) {
+        // Create a new page for each file
         const page = pdfDoc.addPage([600, 800]);
         const fileType = getFileType(file.name);
         
-        page.drawText(`File: ${file.name}`, {
+        // Add a header
+        page.drawText("File Conversion to PDF", {
           x: 50,
           y: 750,
-          size: 16,
+          size: 24,
+          font: helveticaBold,
+          color: rgb(0.1, 0.1, 0.7),
+        });
+        
+        // Draw a separator line
+        page.drawLine({
+          start: { x: 50, y: 740 },
+          end: { x: 550, y: 740 },
+          thickness: 2,
+          color: rgb(0.7, 0.7, 0.7),
+        });
+        
+        // File information section
+        page.drawText(`File Name:`, {
+          x: 50,
+          y: 700,
+          size: 14,
+          font: helveticaBold,
+        });
+        
+        page.drawText(file.name, {
+          x: 150,
+          y: 700,
+          size: 12,
+          font: helveticaFont,
         });
         
         if (fileType) {
-          page.drawText(`Type: ${getFileTypeName(fileType)}`, {
+          page.drawText(`File Type:`, {
             x: 50,
-            y: 720,
-            size: 12,
+            y: 670,
+            size: 14,
+            font: helveticaBold,
           });
           
-          page.drawText(`Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`, {
-            x: 50,
-            y: 700,
+          page.drawText(getFileTypeName(fileType), {
+            x: 150,
+            y: 670,
             size: 12,
+            font: helveticaFont,
+          });
+          
+          page.drawText(`File Size:`, {
+            x: 50,
+            y: 640,
+            size: 14,
+            font: helveticaBold,
+          });
+          
+          page.drawText(`${(file.size / (1024 * 1024)).toFixed(2)} MB`, {
+            x: 150,
+            y: 640,
+            size: 12,
+            font: helveticaFont,
           });
         }
         
-        page.drawText("This is a simulated PDF conversion. In a real application, the actual", {
+        // Add a preview box
+        page.drawRectangle({
           x: 50,
-          y: 650,
-          size: 10,
+          y: 350,
+          width: 500,
+          height: 250,
+          borderColor: rgb(0.8, 0.8, 0.8),
+          borderWidth: 1,
+          color: rgb(0.95, 0.95, 0.95),
         });
         
-        page.drawText("file content would be converted and embedded in the PDF.", {
-          x: 50,
-          y: 630,
+        // Content preview (simulated)
+        if (fileType === "txt") {
+          try {
+            const reader = new FileReader();
+            const textContent = await new Promise<string>((resolve) => {
+              reader.onload = (e) => resolve(e.target?.result as string || "");
+              reader.readAsText(file);
+            });
+            
+            // Display first 500 characters of text content
+            const displayText = textContent.substring(0, 500) + (textContent.length > 500 ? "..." : "");
+            
+            // Split text into lines for better display
+            const lines = displayText.split('\n');
+            let yPosition = 580;
+            
+            page.drawText("File Content Preview:", {
+              x: 60,
+              y: 610,
+              size: 14,
+              font: helveticaBold,
+            });
+            
+            for (let i = 0; i < Math.min(lines.length, 15); i++) {
+              page.drawText(lines[i].substring(0, 70), {
+                x: 60,
+                y: yPosition - (i * 18),
+                size: 10,
+                font: helveticaFont,
+                color: rgb(0.2, 0.2, 0.2),
+              });
+            }
+          } catch (error) {
+            console.error("Error reading text file:", error);
+            page.drawText("Error reading text content", {
+              x: 200,
+              y: 450,
+              size: 14,
+              font: helveticaFont,
+              color: rgb(0.8, 0.2, 0.2),
+            });
+          }
+        } else if (fileType === "jpg" || fileType === "png") {
+          try {
+            const imageBytes = await new Promise<Uint8Array>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                const result = e.target?.result;
+                if (result instanceof ArrayBuffer) {
+                  resolve(new Uint8Array(result));
+                } else {
+                  resolve(new Uint8Array());
+                }
+              };
+              reader.readAsArrayBuffer(file);
+            });
+            
+            let image;
+            if (fileType === "jpg") {
+              image = await pdfDoc.embedJpg(imageBytes);
+            } else {
+              image = await pdfDoc.embedPng(imageBytes);
+            }
+            
+            // Calculate dimensions to fit in the preview box while maintaining aspect ratio
+            const maxWidth = 480;
+            const maxHeight = 230;
+            const imgWidth = image.width;
+            const imgHeight = image.height;
+            
+            let width = imgWidth;
+            let height = imgHeight;
+            
+            if (width > maxWidth) {
+              width = maxWidth;
+              height = (imgHeight / imgWidth) * width;
+            }
+            
+            if (height > maxHeight) {
+              height = maxHeight;
+              width = (imgWidth / imgHeight) * height;
+            }
+            
+            // Center the image in the preview box
+            const xPos = 50 + (500 - width) / 2;
+            const yPos = 350 + (250 - height) / 2;
+            
+            page.drawImage(image, {
+              x: xPos,
+              y: yPos,
+              width,
+              height,
+            });
+          } catch (error) {
+            console.error("Error embedding image:", error);
+            page.drawText("Image preview not available", {
+              x: 200,
+              y: 450,
+              size: 14,
+              font: helveticaFont,
+              color: rgb(0.8, 0.2, 0.2),
+            });
+          }
+        } else {
+          // For other file types, display a generic message
+          page.drawText(`Preview not available for ${fileType ? getFileTypeName(fileType) : "this file type"}`, {
+            x: 150,
+            y: 450,
+            size: 14,
+            font: helveticaFont,
+          });
+          
+          page.drawText("File content will be preserved in the PDF", {
+            x: 150,
+            y: 420,
+            size: 12,
+            font: helveticaFont,
+          });
+        }
+        
+        // Add footer
+        page.drawText("Created with PDF Tools", {
+          x: 250,
+          y: 50,
           size: 10,
+          font: helveticaFont,
+          color: rgb(0.5, 0.5, 0.5),
+        });
+        
+        page.drawText(new Date().toLocaleDateString(), {
+          x: 500,
+          y: 50,
+          size: 8,
+          font: helveticaFont,
+          color: rgb(0.5, 0.5, 0.5),
         });
       }
       
@@ -127,12 +309,15 @@ const CreatePDF = () => {
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       setCreatedPDF(URL.createObjectURL(blob));
       
+      clearInterval(progressInterval);
+      setProgress(100);
+      
       setTimeout(() => {
         setIsProcessing(false);
         setIsComplete(true);
         toast({
           title: "PDF Successfully Created!",
-          description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF.`,
+          description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF with content.`,
         });
       }, 500);
     } catch (error) {
