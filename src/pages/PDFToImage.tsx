@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -239,55 +240,198 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
-      const previewElement = previewRefs.current[index];
+      // Get the iframe element containing the PDF instead of the div wrapper
+      const iframeElement = document.querySelector(`iframe[title="Page ${pageNumber}"]`);
       
-      if (!previewElement) {
+      if (!iframeElement) {
         toast({
           title: "Error",
-          description: "Could not find preview element",
+          description: "Could not find PDF iframe element",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create a canvas element to render the PDF page
+      const canvas = document.createElement('canvas');
+      
+      // Set canvas size based on DPI
+      const scale = dpi / 72; // PDF standard is 72 DPI
+      canvas.width = 850 * scale; // Standard PDF width
+      canvas.height = 1100 * scale; // Standard PDF height
+      
+      // Render the iframe content to a new window, then to the canvas
+      const dataUrl = imageData; // This is the PDF data URI
+      
+      // Open the PDF in a new window temporarily
+      const newWindow = window.open('', '_blank');
+      if (!newWindow) {
+        toast({
+          title: "Error",
+          description: "Popup blocked. Please allow popups for this site.",
           variant: "destructive",
         });
         return;
       }
       
-      let dataUrl;
-      // Use different methods based on the selected format
-      switch (format) {
-        case "jpg":
-          dataUrl = await htmlToImage.toJpeg(previewElement, {
-            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
-            backgroundColor: '#ffffff'
-          });
-          break;
-        case "png":
-          dataUrl = await htmlToImage.toPng(previewElement, {
-            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
-          });
-          break;
-        case "webp":
-          dataUrl = await htmlToImage.toJpeg(previewElement, {
-            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
-          });
-          // Convert JPEG to WebP if needed (in a production app)
-          break;
-        default:
-          dataUrl = await htmlToImage.toJpeg(previewElement, {
-            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
-            backgroundColor: '#ffffff'
-          });
-      }
+      // Set window content to the PDF
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>PDF Rendering</title>
+            <style>
+              body, html {
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                background: white;
+              }
+              iframe {
+                border: none;
+                width: 100%;
+                height: 100%;
+              }
+            </style>
+          </head>
+          <body>
+            <iframe src="${dataUrl}" width="100%" height="100%"></iframe>
+          </body>
+        </html>
+      `);
       
-      // Create and trigger download
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `page-${pageNumber}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Download Started",
-        description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
+      // When the iframe loads, render it to an image
+      newWindow.document.querySelector('iframe')?.addEventListener('load', async () => {
+        try {
+          // Wait a moment for the PDF to render
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Use html-to-image on the document body
+          let imageDataUrl;
+          switch (format) {
+            case "jpg":
+              imageDataUrl = await htmlToImage.toJpeg(newWindow.document.body, {
+                quality: 1.0,
+                backgroundColor: '#ffffff',
+                width: canvas.width,
+                height: canvas.height,
+                style: {
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                }
+              });
+              break;
+            case "png":
+              imageDataUrl = await htmlToImage.toPng(newWindow.document.body, {
+                quality: 1.0,
+                backgroundColor: '#ffffff',
+                width: canvas.width,
+                height: canvas.height,
+                style: {
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                }
+              });
+              break;
+            case "webp":
+              imageDataUrl = await htmlToImage.toWebp(newWindow.document.body, {
+                quality: 1.0,
+                backgroundColor: '#ffffff',
+                width: canvas.width,
+                height: canvas.height,
+                style: {
+                  transform: `scale(${scale})`,
+                  transformOrigin: 'top left',
+                }
+              });
+              break;
+            default:
+              imageDataUrl = await htmlToImage.toJpeg(newWindow.document.body, {
+                quality: 1.0,
+                backgroundColor: '#ffffff',
+                width: canvas.width,
+                height: canvas.height
+              });
+          }
+          
+          // Create and trigger download
+          const link = document.createElement('a');
+          link.href = imageDataUrl;
+          link.download = `page-${pageNumber}.${format}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Close the temporary window
+          newWindow.close();
+          
+          toast({
+            title: "Download Complete",
+            description: `Page ${pageNumber} downloaded as ${format.toUpperCase()}.`,
+          });
+        } catch (error) {
+          console.error("Error converting to image:", error);
+          newWindow.close();
+          
+          toast({
+            title: "Conversion Error",
+            description: `Failed to convert page ${pageNumber}. Trying alternative method...`,
+            variant: "destructive",
+          });
+          
+          // Fallback method
+          try {
+            // Try direct conversion from PDF data
+            const img = new Image();
+            img.src = imageData;
+            
+            await new Promise((resolve) => {
+              img.onload = resolve;
+            });
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.fillStyle = 'white';
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              
+              // Get the image data
+              let imgDataUrl;
+              if (format === 'png') {
+                imgDataUrl = canvas.toDataURL('image/png');
+              } else if (format === 'webp') {
+                imgDataUrl = canvas.toDataURL('image/webp');
+              } else {
+                imgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+              }
+              
+              // Download
+              const link = document.createElement('a');
+              link.href = imgDataUrl;
+              link.download = `page-${pageNumber}.${format}`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              
+              toast({
+                title: "Download Complete",
+                description: `Page ${pageNumber} downloaded as ${format.toUpperCase()} using alternative method.`,
+              });
+            }
+          } catch (fallbackError) {
+            console.error("Fallback conversion also failed:", fallbackError);
+            toast({
+              title: "Download Failed",
+              description: "Could not convert PDF to image. Please try a different format.",
+              variant: "destructive",
+            });
+          }
+        }
       });
     } catch (error) {
       console.error("Error downloading image:", error);
