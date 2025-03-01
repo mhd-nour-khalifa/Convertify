@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Lock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -68,26 +67,15 @@ const ProtectPDF = () => {
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
       
       // Encrypt the PDF with the provided password
-      pdfDoc.encrypt({
+      // The encrypt method in pdf-lib is used like this:
+      const encryptedPdf = await pdfDoc.save({
         userPassword: password,
         ownerPassword: password,
-        // Restrict permissions
-        permissions: {
-          printing: 'highResolution',
-          modifying: false,
-          copying: false,
-          annotating: false,
-          fillingForms: true,
-          contentAccessibility: true,
-          documentAssembly: false,
-        },
+        // Restrict permissions (if needed, but not all versions support these)
       });
       
-      // Serialize the PDF to bytes
-      const pdfBytes = await pdfDoc.save();
-      
       // Create a Blob from the PDF bytes
-      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const pdfBlob = new Blob([encryptedPdf], { type: 'application/pdf' });
       
       // Generate a URL for the Blob
       const pdfUrl = URL.createObjectURL(pdfBlob);
@@ -141,10 +129,10 @@ const ProtectPDF = () => {
     }
   };
 
-  // Cleanup when component unmounts or when file changes
-  useState(() => {
+  // Use useEffect for cleanup instead of useState
+  useEffect(() => {
     return () => cleanupObjectUrl();
-  }, []);
+  }, [protectedPdfUrl]);
 
   return (
     <div className="min-h-screen flex flex-col">
