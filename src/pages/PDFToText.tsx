@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Copy, Download, AlertCircle } from "lucide-react";
@@ -76,7 +77,7 @@ const PDFToText = () => {
       console.error("Error extracting text:", err);
       const errorMessage = analyzeExtractionError(err);
       setError(errorMessage);
-      toast(errorMessage, { variant: "destructive" });
+      toast(errorMessage);
     } finally {
       setIsProcessing(false);
     }

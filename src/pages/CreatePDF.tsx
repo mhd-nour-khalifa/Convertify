@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -196,13 +197,13 @@ const CreatePDF = () => {
     } catch (error) {
       console.error("Error creating PDF:", error);
       setIsProcessing(false);
-      toast("An error occurred while creating the PDF. Please try again.", { variant: "destructive" });
+      toast("An error occurred while creating the PDF. Please try again.");
     }
   };
 
   const downloadPDF = () => {
     if (!createdPDF) {
-      toast("No PDF available to download", { variant: "destructive" });
+      toast("No PDF available to download");
       return;
     }
     

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, MoveDown, MoveUp, Trash, Combine, ArrowLeft, Download, Loader2 } from "lucide-react";
@@ -70,7 +71,7 @@ const MergePDF = () => {
           console.log(`Successfully added ${copiedPages.length} pages from ${file.name}`);
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          toast(`Could not process ${file.name}. The file might be corrupted or password-protected.`, { variant: "destructive" });
+          toast(`Could not process ${file.name}. The file might be corrupted or password-protected.`);
         }
       }
       
@@ -89,7 +90,7 @@ const MergePDF = () => {
       incrementCounter();
     } catch (error) {
       console.error("PDF merge error:", error);
-      toast("Failed to merge PDF files. Please try again.", { variant: "destructive" });
+      toast("Failed to merge PDF files. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -97,7 +98,7 @@ const MergePDF = () => {
 
   const downloadMergedPDF = () => {
     if (!mergedPdfUrl) {
-      toast("No merged PDF available to download.", { variant: "destructive" });
+      toast("No merged PDF available to download.");
       return;
     }
 
