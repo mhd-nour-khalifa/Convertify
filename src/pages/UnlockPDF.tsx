@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Unlock, Loader2 } from "lucide-react";
@@ -49,9 +50,17 @@ const UnlockPDF = () => {
     try {
       const fileArrayBuffer = await file.arrayBuffer();
       
-      const pdfDoc = await PDFDocument.load(fileArrayBuffer, {
-        password: password
+      // The correct way to pass the password to PDFDocument.load()
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer, { 
+        ignoreEncryption: false,
+        parseSpeed: 1,
+        throwOnInvalidObject: false,
+        updateMetadata: true,
+        capNumbers: false,
       });
+      
+      // Explicitly call decrypt with the password
+      await pdfDoc.decrypt(password);
       
       const pdfBytes = await pdfDoc.save();
       const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
