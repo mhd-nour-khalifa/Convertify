@@ -1,20 +1,21 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Lock, Loader2, AlertCircle } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// Import our new components
+import PasswordInputSection from "@/components/pdf-tools/PasswordInputSection";
+import ProtectedPDFResult from "@/components/pdf-tools/ProtectedPDFResult";
+import PDFInstructionsSection from "@/components/pdf-tools/PDFInstructionsSection";
+import BrowserLimitationAlert from "@/components/pdf-tools/BrowserLimitationAlert";
 
 const ProtectPDF = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [protectedPdfUrl, setProtectedPdfUrl] = useState<string | null>(null);
@@ -30,7 +31,7 @@ const ProtectPDF = () => {
     }
   };
 
-  const handleProtect = async () => {
+  const handleProtect = async (password: string) => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -44,15 +45,6 @@ const ProtectPDF = () => {
       toast({
         title: "Password required",
         description: "Please enter a password to protect your PDF",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "The passwords you entered don't match",
         variant: "destructive",
       });
       return;
@@ -114,6 +106,13 @@ const ProtectPDF = () => {
     });
   };
 
+  const resetState = () => {
+    setFile(null);
+    setIsComplete(false);
+    cleanupObjectUrl();
+    setProtectedPdfUrl(null);
+  };
+
   const cleanupObjectUrl = () => {
     if (protectedPdfUrl) {
       URL.revokeObjectURL(protectedPdfUrl);
@@ -149,50 +148,13 @@ const ProtectPDF = () => {
           </div>
           
           <div className="max-w-4xl mx-auto">
-            <Alert className="mb-6 border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-              <AlertCircle className="h-4 w-4 text-amber-500" />
-              <AlertTitle className="text-amber-600 dark:text-amber-400">Browser Limitation</AlertTitle>
-              <AlertDescription className="text-amber-700 dark:text-amber-300">
-                Due to browser limitations, true PDF encryption requires server-side processing. 
-                This demo will process your PDF but cannot add true password protection in the browser.
-              </AlertDescription>
-            </Alert>
+            <BrowserLimitationAlert />
 
             {isComplete ? (
-              <div className="bg-card rounded-xl p-8 shadow-subtle text-center">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Lock className="h-8 w-8 text-primary" />
-                </div>
-                <h2 className="text-2xl font-medium mb-4">Your PDF is Ready!</h2>
-                <p className="text-muted-foreground mb-2">
-                  Your PDF has been processed and is ready for download.
-                </p>
-                <p className="text-amber-500 mb-8 text-sm">
-                  Note: Due to browser limitations, this PDF is not truly encrypted with a password.
-                  For proper PDF encryption, server-side processing would be required.
-                </p>
-                <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <Button 
-                    onClick={downloadProtectedPDF}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
-                  >
-                    Download Processed PDF
-                  </Button>
-                  <Button 
-                    onClick={() => {
-                      setFile(null);
-                      setPassword("");
-                      setConfirmPassword("");
-                      setIsComplete(false);
-                      cleanupObjectUrl();
-                      setProtectedPdfUrl(null);
-                    }}
-                    variant="outline"
-                  >
-                    Process Another PDF
-                  </Button>
-                </div>
-              </div>
+              <ProtectedPDFResult 
+                onDownload={downloadProtectedPDF}
+                onReset={resetState}
+              />
             ) : (
               <>
                 <FileUploader
@@ -206,70 +168,14 @@ const ProtectPDF = () => {
                 
                 {file && (
                   <div className="mt-8">
-                    <div className="bg-card rounded-xl p-8 shadow-subtle">
-                      <h3 className="text-xl font-medium mb-6">Set Password Protection</h3>
-                      
-                      <div className="space-y-6 max-w-md mx-auto">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium" htmlFor="password">Password</label>
-                          <Input
-                            id="password"
-                            type="password"
-                            placeholder="Enter a strong password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                          />
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium" htmlFor="confirm-password">Confirm Password</label>
-                          <Input
-                            id="confirm-password"
-                            type="password"
-                            placeholder="Confirm your password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                          />
-                        </div>
-                        
-                        <Button
-                          onClick={handleProtect}
-                          disabled={isProcessing}
-                          className="w-full"
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Processing...
-                            </>
-                          ) : (
-                            <>
-                              <Lock className="mr-2 h-4 w-4" />
-                              Process PDF
-                            </>
-                          )}
-                        </Button>
-                        
-                        <div className="text-sm text-amber-500 mt-4">
-                          <p>Note: True PDF password protection requires server-side processing. 
-                          This client-side implementation has limitations.</p>
-                        </div>
-                      </div>
-                    </div>
+                    <PasswordInputSection 
+                      isProcessing={isProcessing}
+                      onProtect={handleProtect}
+                    />
                   </div>
                 )}
                 
-                {!file && (
-                  <div className="bg-secondary/50 rounded-xl p-6 mt-8">
-                    <h3 className="text-lg font-medium mb-3">How to Process a PDF</h3>
-                    <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                      <li>Upload your PDF file using the upload box above</li>
-                      <li>Enter and confirm a password</li>
-                      <li>Click the "Process PDF" button</li>
-                      <li>Download your processed PDF</li>
-                    </ol>
-                  </div>
-                )}
+                {!file && <PDFInstructionsSection />}
               </>
             )}
           </div>
