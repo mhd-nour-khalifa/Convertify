@@ -230,87 +230,58 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
-      // Create a container to display the PDF
       const container = document.createElement('div');
-      container.style.position = 'fixed';
-      container.style.top = '0';
-      container.style.left = '0';
-      container.style.width = '100vw';
-      container.style.height = '100vh';
-      container.style.backgroundColor = 'white';
-      container.style.zIndex = '-1000'; // Hide it from view
-      container.style.overflow = 'hidden';
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '1000px';
+      container.style.height = '1000px';
       
-      // Create an iframe to display the PDF
-      const iframe = document.createElement('iframe');
-      iframe.src = imageData;
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
-      iframe.style.border = 'none';
-      container.appendChild(iframe);
+      const embed = document.createElement('embed');
+      embed.src = imageData;
+      embed.type = 'application/pdf';
+      embed.style.width = '100%';
+      embed.style.height = '100%';
       
-      // Add to document
+      container.appendChild(embed);
       document.body.appendChild(container);
       
-      // Wait for iframe to load
-      await new Promise((resolve) => {
-        iframe.onload = resolve;
-      });
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Wait a bit more for rendering
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Calculate scale based on DPI
       const scale = dpi / 72;
       
-      // Convert to the desired format
       let imageDataUrl;
+      
       try {
         switch (format) {
           case "jpg":
-            imageDataUrl = await htmlToImage.toJpeg(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
-              quality: 1.0,
+            imageDataUrl = await htmlToImage.toJpeg(container, {
+              quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale,
-              skipAutoScale: true,
+              pixelRatio: scale
             });
             break;
           case "png":
-            imageDataUrl = await htmlToImage.toPng(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
-              quality: 1.0,
-              backgroundColor: '#ffffff',
-              pixelRatio: scale,
-              skipAutoScale: true,
-            });
-            break;
           case "webp":
-            // html-to-image doesn't have toWebp, use toPng instead
-            imageDataUrl = await htmlToImage.toPng(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
-              quality: 1.0,
+            imageDataUrl = await htmlToImage.toPng(container, {
               backgroundColor: '#ffffff',
-              pixelRatio: scale,
-              skipAutoScale: true,
+              pixelRatio: scale
             });
             break;
           default:
-            imageDataUrl = await htmlToImage.toJpeg(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
-              quality: 1.0,
+            imageDataUrl = await htmlToImage.toJpeg(container, {
+              quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale,
-              skipAutoScale: true,
+              pixelRatio: scale
             });
         }
         
-        // Create link and trigger download
         const link = document.createElement('a');
         link.href = imageDataUrl;
         link.download = `page-${pageNumber}.${format}`;
         document.body.appendChild(link);
         link.click();
-        
-        // Clean up
         document.body.removeChild(link);
-        document.body.removeChild(container);
         
         toast({
           title: "Download Complete",
@@ -318,90 +289,22 @@ const PDFToImage = () => {
         });
       } catch (error) {
         console.error("Error converting to image:", error);
-        document.body.removeChild(container);
         
-        // Fallback method
-        try {
-          toast({
-            title: "Using fallback method",
-            description: `Alternative conversion for page ${pageNumber}.`,
-          });
-          
-          // Create a new window with just the PDF content
-          const pdfWindow = window.open('', '_blank');
-          if (!pdfWindow) {
-            throw new Error("Popup blocked");
-          }
-          
-          pdfWindow.document.write(`
-            <html>
-              <head>
-                <title>PDF Preview</title>
-                <style>
-                  body, html {
-                    margin: 0;
-                    padding: 0;
-                    height: 100%;
-                    overflow: hidden;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    background: white;
-                  }
-                  embed {
-                    width: 100%;
-                    height: 100%;
-                  }
-                </style>
-              </head>
-              <body>
-                <embed src="${imageData}" type="application/pdf" />
-              </body>
-            </html>
-          `);
-          
-          // Wait for content to load
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          // Take screenshot
-          const screenshot = await htmlToImage.toCanvas(pdfWindow.document.body, {
-            quality: 1.0,
-            backgroundColor: '#ffffff',
-            pixelRatio: scale,
-          });
-          
-          // Convert to desired format
-          let fallbackImageUrl;
-          if (format === 'png' || format === 'webp') {
-            fallbackImageUrl = screenshot.toDataURL('image/png');
-          } else {
-            fallbackImageUrl = screenshot.toDataURL('image/jpeg', 0.95);
-          }
-          
-          // Create download link
-          const fallbackLink = document.createElement('a');
-          fallbackLink.href = fallbackImageUrl;
-          fallbackLink.download = `page-${pageNumber}.${format}`;
-          document.body.appendChild(fallbackLink);
-          fallbackLink.click();
-          document.body.removeChild(fallbackLink);
-          
-          // Close the window
-          pdfWindow.close();
-          
-          toast({
-            title: "Download Complete",
-            description: `Page ${pageNumber} downloaded using fallback method.`,
-          });
-        } catch (fallbackError) {
-          console.error("Fallback method failed:", fallbackError);
-          toast({
-            title: "Download Failed",
-            description: "Could not convert PDF to image. Please try a different file or format.",
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Using fallback download method",
+          description: `Downloading page ${pageNumber} as PDF instead.`,
+        });
+        
+        const link = document.createElement('a');
+        link.href = imageData;
+        link.download = `page-${pageNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
+      
+      document.body.removeChild(container);
+      
     } catch (error) {
       console.error("Error downloading image:", error);
       toast({
@@ -422,7 +325,7 @@ const PDFToImage = () => {
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
           downloadImage(image.page, image.thumbnail, index);
-        }, index * 500);
+        }, index * 1000);
       });
     }
   };
