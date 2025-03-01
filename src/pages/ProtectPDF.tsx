@@ -63,26 +63,27 @@ const ProtectPDF = () => {
       const fileArrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
       
-      // Fix: Using the correct options structure for password protection
-      const encryptedPdf = await pdfDoc.save({
-        // PDF encryption options
-        userPassword: password,
-        ownerPassword: password,
-      });
+      // Note: pdf-lib doesn't support direct encryption in the client
+      // We're using the most basic save options without encryption
+      // A proper solution would involve a server-side component
+      const pdfBytes = await pdfDoc.save();
       
-      const pdfBlob = new Blob([encryptedPdf], { type: 'application/pdf' });
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setProtectedPdfUrl(pdfUrl);
       setIsComplete(true);
+      
       toast({
-        title: "PDF Protected Successfully!",
-        description: "Your PDF has been encrypted with a password.",
+        title: "PDF Processed",
+        description: "Note: True PDF encryption requires server-side processing. This is a client-side limitation.",
       });
+      
+      console.log("PDF-lib doesn't support client-side encryption. A server would be needed for true password protection.");
     } catch (error) {
-      console.error("Error protecting PDF:", error);
+      console.error("Error processing PDF:", error);
       toast({
-        title: "Protection Failed",
-        description: "An error occurred while protecting your PDF. Please try again.",
+        title: "Processing Failed",
+        description: "An error occurred while processing your PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -153,16 +154,19 @@ const ProtectPDF = () => {
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <Lock className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-medium mb-4">Your PDF is Now Protected!</h2>
-                <p className="text-muted-foreground mb-8">
-                  Your PDF has been successfully encrypted with a password.
+                <h2 className="text-2xl font-medium mb-4">Your PDF is Ready!</h2>
+                <p className="text-muted-foreground mb-2">
+                  Your PDF has been processed and is ready for download.
+                </p>
+                <p className="text-amber-500 mb-8 text-sm">
+                  Note: True PDF encryption requires server-side processing.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                   <Button 
                     onClick={downloadProtectedPDF}
                     className="bg-primary text-primary-foreground hover:bg-primary/90"
                   >
-                    Download Protected PDF
+                    Download Processed PDF
                   </Button>
                   <Button 
                     onClick={() => {
@@ -175,7 +179,7 @@ const ProtectPDF = () => {
                     }}
                     variant="outline"
                   >
-                    Protect Another PDF
+                    Process Another PDF
                   </Button>
                 </div>
               </div>
@@ -231,10 +235,15 @@ const ProtectPDF = () => {
                           ) : (
                             <>
                               <Lock className="mr-2 h-4 w-4" />
-                              Protect PDF
+                              Process PDF
                             </>
                           )}
                         </Button>
+                        
+                        <div className="text-sm text-amber-500 mt-4">
+                          <p>Note: True PDF password protection requires server-side processing. 
+                          This client-side implementation has limitations.</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -242,12 +251,12 @@ const ProtectPDF = () => {
                 
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
-                    <h3 className="text-lg font-medium mb-3">How to Protect a PDF with Password</h3>
+                    <h3 className="text-lg font-medium mb-3">How to Process a PDF</h3>
                     <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                       <li>Upload your PDF file using the upload box above</li>
-                      <li>Enter and confirm a strong password for protection</li>
-                      <li>Click the "Protect PDF" button</li>
-                      <li>Download your password-protected PDF</li>
+                      <li>Enter and confirm a password</li>
+                      <li>Click the "Process PDF" button</li>
+                      <li>Download your processed PDF</li>
                     </ol>
                   </div>
                 )}
