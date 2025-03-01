@@ -8,6 +8,11 @@ import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
 import { Button } from "@/components/ui/button";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const PDFToText = () => {
   const [extractedText, setExtractedText] = useState<string>("");
