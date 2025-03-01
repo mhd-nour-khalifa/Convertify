@@ -1,13 +1,11 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Download, Copy } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
-import { Button } from "@/components/ui/button";
-import * as pdfParse from 'pdf-parse';
 
 const PDFToText = () => {
   const [extractedText, setExtractedText] = useState<string>("");
@@ -17,27 +15,16 @@ const PDFToText = () => {
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
 
-    const file = files[0];
     setIsProcessing(true);
-    setExtractedText("");
-
     try {
-      // Read the PDF file as an ArrayBuffer
-      const arrayBuffer = await file.arrayBuffer();
-      
-      // Parse the PDF using pdf-parse
-      const data = await pdfParse(arrayBuffer);
-      
-      // Set the extracted text
-      setExtractedText(data.text);
-      
+      // TODO: Implement PDF text extraction logic
+      // For now, show a message that this feature is coming soon
       toast({
-        title: "Success",
-        description: "Text extracted successfully!",
+        title: "Coming Soon",
+        description: "PDF to Text conversion will be available soon!",
         duration: 3000,
       });
     } catch (error) {
-      console.error("Error extracting text:", error);
       toast({
         title: "Error",
         description: "Failed to extract text from PDF",
@@ -46,46 +33,6 @@ const PDFToText = () => {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleCopyText = () => {
-    if (!extractedText) return;
-    
-    navigator.clipboard.writeText(extractedText)
-      .then(() => {
-        toast({
-          title: "Copied",
-          description: "Text copied to clipboard",
-          duration: 2000,
-        });
-      })
-      .catch(() => {
-        toast({
-          title: "Error",
-          description: "Failed to copy text",
-          variant: "destructive",
-        });
-      });
-  };
-
-  const handleDownloadText = () => {
-    if (!extractedText) return;
-    
-    const blob = new Blob([extractedText], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "extracted-text.txt";
-    document.body.appendChild(a);
-    a.click();
-    URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    toast({
-      title: "Downloaded",
-      description: "Text file downloaded successfully",
-      duration: 2000,
-    });
   };
 
   return (
@@ -135,30 +82,8 @@ const PDFToText = () => {
         {extractedText && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-card rounded-lg p-6 shadow-subtle">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Extracted Text</h2>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyText}
-                    className="flex items-center"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDownloadText}
-                    className="flex items-center"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                </div>
-              </div>
-              <div className="bg-muted p-4 rounded-md whitespace-pre-wrap h-80 overflow-y-auto text-sm">
+              <h2 className="text-xl font-semibold mb-4">Extracted Text</h2>
+              <div className="bg-muted p-4 rounded-md whitespace-pre-wrap">
                 {extractedText}
               </div>
             </div>
