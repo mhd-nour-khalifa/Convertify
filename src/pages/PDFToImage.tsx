@@ -230,181 +230,178 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
-      const iframeElement = document.querySelector(`iframe[title="Page ${pageNumber}"]`);
+      // Create a container to display the PDF
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.top = '0';
+      container.style.left = '0';
+      container.style.width = '100vw';
+      container.style.height = '100vh';
+      container.style.backgroundColor = 'white';
+      container.style.zIndex = '-1000'; // Hide it from view
+      container.style.overflow = 'hidden';
       
-      if (!iframeElement) {
-        toast({
-          title: "Error",
-          description: "Could not find PDF iframe element",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
+      // Create an iframe to display the PDF
+      const iframe = document.createElement('iframe');
+      iframe.src = imageData;
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      container.appendChild(iframe);
+      
+      // Add to document
+      document.body.appendChild(container);
+      
+      // Wait for iframe to load
+      await new Promise((resolve) => {
+        iframe.onload = resolve;
+      });
+      
+      // Wait a bit more for rendering
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Calculate scale based on DPI
       const scale = dpi / 72;
-      canvas.width = 850 * scale;
-      canvas.height = 1100 * scale;
       
-      const dataUrl = imageData;
-      
-      const newWindow = window.open('', '_blank');
-      if (!newWindow) {
+      // Convert to the desired format
+      let imageDataUrl;
+      try {
+        switch (format) {
+          case "jpg":
+            imageDataUrl = await htmlToImage.toJpeg(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
+              quality: 1.0,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale,
+              skipAutoScale: true,
+            });
+            break;
+          case "png":
+            imageDataUrl = await htmlToImage.toPng(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
+              quality: 1.0,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale,
+              skipAutoScale: true,
+            });
+            break;
+          case "webp":
+            // html-to-image doesn't have toWebp, use toPng instead
+            imageDataUrl = await htmlToImage.toPng(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
+              quality: 1.0,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale,
+              skipAutoScale: true,
+            });
+            break;
+          default:
+            imageDataUrl = await htmlToImage.toJpeg(iframe.contentDocument?.body || iframe.contentWindow?.document.body, {
+              quality: 1.0,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale,
+              skipAutoScale: true,
+            });
+        }
+        
+        // Create link and trigger download
+        const link = document.createElement('a');
+        link.href = imageDataUrl;
+        link.download = `page-${pageNumber}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        document.body.removeChild(link);
+        document.body.removeChild(container);
+        
         toast({
-          title: "Error",
-          description: "Popup blocked. Please allow popups for this site.",
-          variant: "destructive",
+          title: "Download Complete",
+          description: `Page ${pageNumber} downloaded as ${format.toUpperCase()}.`,
         });
-        return;
-      }
-      
-      newWindow.document.write(`
-        <html>
-          <head>
-            <title>PDF Rendering</title>
-            <style>
-              body, html {
-                margin: 0;
-                padding: 0;
-                overflow: hidden;
-                width: 100%;
-                height: 100%;
-                background: white;
-              }
-              iframe {
-                border: none;
-                width: 100%;
-                height: 100%;
-              }
-            </style>
-          </head>
-          <body>
-            <iframe src="${dataUrl}" width="100%" height="100%"></iframe>
-          </body>
-        </html>
-      `);
-      
-      newWindow.document.querySelector('iframe')?.addEventListener('load', async () => {
+      } catch (error) {
+        console.error("Error converting to image:", error);
+        document.body.removeChild(container);
+        
+        // Fallback method
         try {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          toast({
+            title: "Using fallback method",
+            description: `Alternative conversion for page ${pageNumber}.`,
+          });
           
-          let imageDataUrl;
-          switch (format) {
-            case "jpg":
-              imageDataUrl = await htmlToImage.toJpeg(newWindow.document.body, {
-                quality: 1.0,
-                backgroundColor: '#ffffff',
-                width: canvas.width,
-                height: canvas.height,
-                style: {
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-                }
-              });
-              break;
-            case "png":
-              imageDataUrl = await htmlToImage.toPng(newWindow.document.body, {
-                quality: 1.0,
-                backgroundColor: '#ffffff',
-                width: canvas.width,
-                height: canvas.height,
-                style: {
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-                }
-              });
-              break;
-            case "webp":
-              imageDataUrl = await htmlToImage.toPng(newWindow.document.body, {
-                quality: 1.0,
-                backgroundColor: '#ffffff',
-                width: canvas.width,
-                height: canvas.height,
-                style: {
-                  transform: `scale(${scale})`,
-                  transformOrigin: 'top left',
-                }
-              });
-              break;
-            default:
-              imageDataUrl = await htmlToImage.toJpeg(newWindow.document.body, {
-                quality: 1.0,
-                backgroundColor: '#ffffff',
-                width: canvas.width,
-                height: canvas.height
-              });
+          // Create a new window with just the PDF content
+          const pdfWindow = window.open('', '_blank');
+          if (!pdfWindow) {
+            throw new Error("Popup blocked");
           }
           
-          const link = document.createElement('a');
-          link.href = imageDataUrl;
-          link.download = `page-${pageNumber}.${format}`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          pdfWindow.document.write(`
+            <html>
+              <head>
+                <title>PDF Preview</title>
+                <style>
+                  body, html {
+                    margin: 0;
+                    padding: 0;
+                    height: 100%;
+                    overflow: hidden;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    background: white;
+                  }
+                  embed {
+                    width: 100%;
+                    height: 100%;
+                  }
+                </style>
+              </head>
+              <body>
+                <embed src="${imageData}" type="application/pdf" />
+              </body>
+            </html>
+          `);
           
-          newWindow.close();
+          // Wait for content to load
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Take screenshot
+          const screenshot = await htmlToImage.toCanvas(pdfWindow.document.body, {
+            quality: 1.0,
+            backgroundColor: '#ffffff',
+            pixelRatio: scale,
+          });
+          
+          // Convert to desired format
+          let fallbackImageUrl;
+          if (format === 'png' || format === 'webp') {
+            fallbackImageUrl = screenshot.toDataURL('image/png');
+          } else {
+            fallbackImageUrl = screenshot.toDataURL('image/jpeg', 0.95);
+          }
+          
+          // Create download link
+          const fallbackLink = document.createElement('a');
+          fallbackLink.href = fallbackImageUrl;
+          fallbackLink.download = `page-${pageNumber}.${format}`;
+          document.body.appendChild(fallbackLink);
+          fallbackLink.click();
+          document.body.removeChild(fallbackLink);
+          
+          // Close the window
+          pdfWindow.close();
           
           toast({
             title: "Download Complete",
-            description: `Page ${pageNumber} downloaded as ${format.toUpperCase()}.`,
+            description: `Page ${pageNumber} downloaded using fallback method.`,
           });
-        } catch (error) {
-          console.error("Error converting to image:", error);
-          newWindow.close();
-          
+        } catch (fallbackError) {
+          console.error("Fallback method failed:", fallbackError);
           toast({
-            title: "Conversion Error",
-            description: `Failed to convert page ${pageNumber}. Trying alternative method...`,
+            title: "Download Failed",
+            description: "Could not convert PDF to image. Please try a different file or format.",
             variant: "destructive",
           });
-          
-          try {
-            const img = new Image();
-            img.src = imageData;
-            
-            await new Promise((resolve) => {
-              img.onload = resolve;
-            });
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.fillStyle = 'white';
-              ctx.fillRect(0, 0, canvas.width, canvas.height);
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              
-              let imgDataUrl;
-              if (format === 'png' || format === 'webp') {
-                imgDataUrl = canvas.toDataURL('image/png');
-              } else {
-                imgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
-              }
-              
-              const link = document.createElement('a');
-              link.href = imgDataUrl;
-              link.download = `page-${pageNumber}.${format}`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              
-              toast({
-                title: "Download Complete",
-                description: `Page ${pageNumber} downloaded as ${format.toUpperCase()} using alternative method.`,
-              });
-            }
-          } catch (fallbackError) {
-            console.error("Fallback conversion also failed:", fallbackError);
-            toast({
-              title: "Download Failed",
-              description: "Could not convert PDF to image. Please try a different format.",
-              variant: "destructive",
-            });
-          }
         }
-      });
+      }
     } catch (error) {
       console.error("Error downloading image:", error);
       toast({
