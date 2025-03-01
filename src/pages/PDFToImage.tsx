@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
+import * as htmlToImage from 'html-to-image';
 
 type ImageFormat = "jpg" | "png" | "webp";
 type DPI = 72 | 150 | 300;
@@ -25,6 +26,8 @@ const PDFToImage = () => {
   const [pagePreviews, setPagePreviews] = useState<string[]>([]);
   const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
   const { toast } = useToast();
+
+  const previewRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   const handleFileSelected = async (selectedFiles: File[]) => {
     if (selectedFiles.length === 0) {
@@ -234,20 +237,66 @@ const PDFToImage = () => {
     }
   };
 
-  const downloadImage = (pageNumber: number, imageData: string) => {
-    // For now, we'll download the PDF data as the image format
-    // In a production app, this would convert PDF to actual image format
-    const link = document.createElement('a');
-    link.href = imageData;
-    link.download = `page-${pageNumber}.${format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Download Started",
-      description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
-    });
+  const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
+    try {
+      const previewElement = previewRefs.current[index];
+      
+      if (!previewElement) {
+        toast({
+          title: "Error",
+          description: "Could not find preview element",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      let dataUrl;
+      // Use different methods based on the selected format
+      switch (format) {
+        case "jpg":
+          dataUrl = await htmlToImage.toJpeg(previewElement, {
+            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
+            backgroundColor: '#ffffff'
+          });
+          break;
+        case "png":
+          dataUrl = await htmlToImage.toPng(previewElement, {
+            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
+          });
+          break;
+        case "webp":
+          dataUrl = await htmlToImage.toJpeg(previewElement, {
+            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
+          });
+          // Convert JPEG to WebP if needed (in a production app)
+          break;
+        default:
+          dataUrl = await htmlToImage.toJpeg(previewElement, {
+            quality: dpi === 300 ? 1.0 : dpi === 150 ? 0.8 : 0.6,
+            backgroundColor: '#ffffff'
+          });
+      }
+      
+      // Create and trigger download
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `page-${pageNumber}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Download Started",
+        description: `Page ${pageNumber} is downloading as ${format.toUpperCase()}.`,
+      });
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast({
+        title: "Download Error",
+        description: `Could not convert page ${pageNumber} to ${format.toUpperCase()}.`,
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadImages = () => {
@@ -261,8 +310,8 @@ const PDFToImage = () => {
       // Add a small delay between downloads to prevent browser blocking
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
-          downloadImage(image.page, image.thumbnail);
-        }, index * 300);
+          downloadImage(image.page, image.thumbnail, index);
+        }, index * 500);
       });
     }
   };
@@ -308,17 +357,22 @@ const PDFToImage = () => {
                 
                 {/* Image Preview Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
-                  {convertedImages.map((image) => (
+                  {convertedImages.map((image, index) => (
                     <div key={image.page} className="bg-muted rounded-lg overflow-hidden">
-                      <iframe 
-                        src={image.thumbnail} 
-                        title={`Page ${image.page}`} 
-                        className="w-full h-32 object-contain border-none"
-                      />
+                      <div 
+                        ref={el => previewRefs.current[index] = el}
+                        className="w-full h-32 flex justify-center items-center bg-white"
+                      >
+                        <iframe 
+                          src={image.thumbnail} 
+                          title={`Page ${image.page}`} 
+                          className="w-full h-32 object-contain border-none"
+                        />
+                      </div>
                       <div className="p-2 text-center text-sm flex justify-between items-center">
                         <span>Page {image.page}</span>
                         <button 
-                          onClick={() => downloadImage(image.page, image.thumbnail)}
+                          onClick={() => downloadImage(image.page, image.thumbnail, index)}
                           className="text-primary hover:text-primary/80"
                           aria-label={`Download page ${image.page}`}
                         >
