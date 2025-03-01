@@ -11,8 +11,7 @@ import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker
-const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const PDFToText = () => {
   const [extractedText, setExtractedText] = useState<string>("");
