@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Copy, Download, AlertCircle } from "lucide-react";
@@ -10,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import * as pdfjsLib from 'pdfjs-dist';
+import { useCounter } from "@/context/CounterContext";
+import { toast } from "sonner";
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -19,7 +20,8 @@ const PDFToText = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
+  const { incrementCounter } = useCounter();
 
   const analyzeExtractionError = (error: any): string => {
     const errorMsg = error?.message || String(error);
@@ -65,21 +67,16 @@ const PDFToText = () => {
         setExtractedText("");
       } else {
         setExtractedText(result.text);
-        toast({
-          title: "Success",
-          description: "Text extracted successfully!",
-          duration: 3000,
-        });
+        toast.success("Success", "Text extracted successfully!");
+        
+        // Increment the operation counter
+        incrementCounter();
       }
     } catch (err) {
       console.error("Error extracting text:", err);
       const errorMessage = analyzeExtractionError(err);
       setError(errorMessage);
-      toast({
-        title: "Extraction Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      toast.error("Extraction Failed", errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -87,11 +84,7 @@ const PDFToText = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(extractedText);
-    toast({
-      title: "Copied!",
-      description: "Text copied to clipboard",
-      duration: 2000,
-    });
+    toast.success("Copied!", "Text copied to clipboard");
   };
 
   const downloadText = () => {
@@ -103,15 +96,11 @@ const PDFToText = () => {
     element.click();
     document.body.removeChild(element);
     
-    toast({
-      title: "Downloaded!",
-      description: "Text file downloaded successfully",
-      duration: 2000,
-    });
+    toast.success("Downloaded!", "Text file downloaded successfully");
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
       <Header />
       <main className="flex-grow container mx-auto px-4 py-8">
         {/* Breadcrumb */}
@@ -135,7 +124,7 @@ const PDFToText = () => {
 
         {/* Page Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-4">Convert PDF to Text</h1>
+          <h1 className="text-3xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">Convert PDF to Text</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Extract text content from your PDF documents quickly and accurately
           </p>
@@ -163,7 +152,7 @@ const PDFToText = () => {
             </Alert>
             
             {error.includes("scanned") && (
-              <div className="mt-4 p-4 bg-muted rounded-md text-sm">
+              <div className="mt-4 p-4 bg-white rounded-md text-sm border border-gray-100 shadow-sm">
                 <h3 className="font-medium mb-2">Tips:</h3>
                 <ul className="list-disc pl-5 space-y-1">
                   <li>For scanned PDFs, you need OCR (Optical Character Recognition) to extract text</li>
@@ -178,7 +167,7 @@ const PDFToText = () => {
         {/* Results Section */}
         {extractedText && (
           <div className="max-w-2xl mx-auto">
-            <div className="bg-card rounded-lg p-6 shadow-sm border">
+            <div className="bg-white rounded-lg p-6 shadow-md border border-gray-100">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">Extracted Text</h2>
                 <div className="flex space-x-2">
@@ -186,7 +175,7 @@ const PDFToText = () => {
                     variant="outline"
                     size="sm"
                     onClick={copyToClipboard}
-                    className="flex items-center"
+                    className="flex items-center border-gray-200 hover:bg-gray-50"
                   >
                     <Copy className="h-4 w-4 mr-2" />
                     Copy
@@ -195,14 +184,14 @@ const PDFToText = () => {
                     variant="outline"
                     size="sm"
                     onClick={downloadText}
-                    className="flex items-center"
+                    className="flex items-center border-gray-200 hover:bg-gray-50"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
                 </div>
               </div>
-              <div className="bg-muted p-4 rounded-md whitespace-pre-wrap max-h-[400px] overflow-y-auto text-left">
+              <div className="bg-gray-50 p-4 rounded-md whitespace-pre-wrap max-h-[400px] overflow-y-auto text-left border border-gray-100">
                 {extractedText}
               </div>
             </div>

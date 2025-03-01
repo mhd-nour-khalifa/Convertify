@@ -2,12 +2,14 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
-import { Loader2, FilePlus2, Download, ChevronRight, ChevronLeft, ArrowLeft, FileType as FileTypeIcon } from "lucide-react";
+import { Loader2, FilePlus2, Download, ChevronRight, ArrowLeft, FileType as FileTypeIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { useCounter } from "@/context/CounterContext";
+import { toast } from "sonner";
 
 type FileType = "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "jpg" | "png" | "txt";
 
@@ -17,7 +19,8 @@ const CreatePDF = () => {
   const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [createdPDF, setCreatedPDF] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
+  const { incrementCounter } = useCounter();
 
   const handleFilesSelected = (selectedFiles: File[]) => {
     setFiles(selectedFiles);
@@ -59,11 +62,7 @@ const CreatePDF = () => {
 
   const createPDF = async () => {
     if (files.length === 0) {
-      toast({
-        title: "No files selected",
-        description: "Please upload files to convert to PDF",
-        variant: "destructive",
-      });
+      toast.error("No files selected", "Please upload files to convert to PDF");
       return;
     }
 
@@ -190,36 +189,24 @@ const CreatePDF = () => {
       setTimeout(() => {
         setIsProcessing(false);
         setIsComplete(true);
-        toast({
-          title: "PDF Successfully Created!",
-          description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF with content.`,
-        });
+        toast.success("PDF Successfully Created!", `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF with content.`);
+        
+        incrementCounter();
       }, 500);
     } catch (error) {
       console.error("Error creating PDF:", error);
       setIsProcessing(false);
-      toast({
-        title: "Error creating PDF",
-        description: "An error occurred while creating the PDF. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Error creating PDF", "An error occurred while creating the PDF. Please try again.");
     }
   };
 
   const downloadPDF = () => {
     if (!createdPDF) {
-      toast({
-        title: "Error",
-        description: "No PDF available to download",
-        variant: "destructive",
-      });
+      toast.error("Error", "No PDF available to download");
       return;
     }
     
-    toast({
-      title: "Download Started",
-      description: "Your created PDF is downloading.",
-    });
+    toast.success("Download Started", "Your created PDF is downloading.");
     
     const link = document.createElement('a');
     link.href = createdPDF;
@@ -230,7 +217,7 @@ const CreatePDF = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-gray-50">
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
@@ -247,7 +234,7 @@ const CreatePDF = () => {
           </nav>
           
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-semibold mb-4">Create PDF Files</h1>
+            <h1 className="text-4xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-600">Create PDF Files</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Convert documents, presentations, spreadsheets and images to PDF format
             </p>
@@ -255,18 +242,18 @@ const CreatePDF = () => {
           
           <div className="max-w-4xl mx-auto">
             {isComplete ? (
-              <div className="bg-card rounded-xl p-8 shadow-subtle text-center">
+              <div className="bg-white rounded-xl p-8 shadow-lg border border-gray-100 text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                   <FilePlus2 className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-medium mb-4">Your PDF Has Been Created!</h2>
+                <h2 className="text-2xl font-bold mb-4">Your PDF Has Been Created!</h2>
                 <p className="text-muted-foreground mb-8">
                   {files.length} file{files.length !== 1 ? 's' : ''} successfully converted to PDF format.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                   <Button 
                     onClick={downloadPDF}
-                    className="bg-primary text-primary-foreground"
+                    className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all duration-300 shadow-md"
                     size="lg"
                   >
                     <Download className="mr-2 h-5 w-5" />
@@ -280,6 +267,7 @@ const CreatePDF = () => {
                     }}
                     variant="outline"
                     size="lg"
+                    className="border-gray-300 hover:bg-gray-50"
                   >
                     <ArrowLeft className="mr-2 h-5 w-5" />
                     Create Another PDF
@@ -299,14 +287,14 @@ const CreatePDF = () => {
                 
                 {files.length > 0 && (
                   <div className="mt-8">
-                    <h3 className="text-lg font-medium mb-4">Files to Convert</h3>
+                    <h3 className="text-lg font-semibold mb-4">Files to Convert</h3>
                     <div className="space-y-3 mb-8">
                       {files.map((file, index) => {
                         const fileType = getFileType(file.name);
                         return (
                           <div 
                             key={index} 
-                            className="flex items-center bg-card rounded-lg p-4 shadow-sm"
+                            className="flex items-center bg-white rounded-lg p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                           >
                             <div className="flex-shrink-0 bg-primary/10 p-2 rounded-full">
                               <FileTypeIcon className="h-5 w-5 text-primary" />
@@ -339,7 +327,7 @@ const CreatePDF = () => {
                         onClick={createPDF}
                         disabled={files.length === 0 || isProcessing}
                         size="lg"
-                        className="px-8"
+                        className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-700 transition-all duration-300 shadow-md px-8"
                       >
                         {isProcessing ? (
                           <>
@@ -358,8 +346,8 @@ const CreatePDF = () => {
                 )}
                 
                 {files.length === 0 && (
-                  <div className="bg-secondary/50 rounded-xl p-6 mt-8">
-                    <h3 className="text-lg font-medium mb-3">How to Create PDF Files</h3>
+                  <div className="bg-white/80 rounded-xl p-6 mt-8 border border-gray-100 shadow-sm">
+                    <h3 className="text-lg font-semibold mb-3">How to Create PDF Files</h3>
                     <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
                       <li>Upload one or more files using the upload box above</li>
                       <li>Supported formats include Word, Excel, PowerPoint, images, and text files</li>

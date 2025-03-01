@@ -19,14 +19,21 @@ import ProtectPDF from "./pages/ProtectPDF";
 import UnlockPDF from "./pages/UnlockPDF";
 import RotatePDF from "./pages/RotatePDF";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <CounterProvider>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
+        <Sonner position="top-right" closeButton />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
