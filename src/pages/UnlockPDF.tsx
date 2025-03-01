@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Unlock, Loader2 } from "lucide-react";
@@ -48,21 +47,10 @@ const UnlockPDF = () => {
     setIsProcessing(true);
     
     try {
-      // Attempt to unlock the PDF using the provided password
       const fileArrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer, password);
       
-      // The fix: Use the correct LoadOptions format for pdf-lib
-      // The password should be provided as { password: string }
-      const pdfDoc = await PDFDocument.load(fileArrayBuffer, { 
-        updateMetadata: false,
-        ignoreEncryption: false,
-        parseSpeed: -1,
-        password
-      });
-      
-      // If we reach here, the password was correct
-      const pdfBytes = await pdfDoc.save(); // Save without encryption
-      
+      const pdfBytes = await pdfDoc.save();
       const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setUnlockedPdfUrl(pdfUrl);
@@ -132,7 +120,6 @@ const UnlockPDF = () => {
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -145,7 +132,6 @@ const UnlockPDF = () => {
             <span className="text-foreground font-medium">Unlock PDF</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Remove PDF Password Protection</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -182,7 +168,6 @@ const UnlockPDF = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -231,7 +216,6 @@ const UnlockPDF = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Unlock a PDF</h3>
