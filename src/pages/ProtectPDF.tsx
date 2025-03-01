@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PDFDocument } from "pdf-lib";
 
 const ProtectPDF = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -15,15 +16,21 @@ const ProtectPDF = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [protectedPdfUrl, setProtectedPdfUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFilesSelected = (files: File[]) => {
     if (files.length === 0) return;
     setFile(files[0]);
     setIsComplete(false);
+    // Clear any previous protected PDF URL
+    if (protectedPdfUrl) {
+      URL.revokeObjectURL(protectedPdfUrl);
+      setProtectedPdfUrl(null);
+    }
   };
 
-  const handleProtect = () => {
+  const handleProtect = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -53,24 +60,91 @@ const ProtectPDF = () => {
 
     setIsProcessing(true);
     
-    // Simulate processing delay
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      // Read the file as an ArrayBuffer
+      const fileArrayBuffer = await file.arrayBuffer();
+      
+      // Load the PDF document
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer);
+      
+      // Encrypt the PDF with the provided password
+      pdfDoc.encrypt({
+        userPassword: password,
+        ownerPassword: password,
+        // Restrict permissions
+        permissions: {
+          printing: 'highResolution',
+          modifying: false,
+          copying: false,
+          annotating: false,
+          fillingForms: true,
+          contentAccessibility: true,
+          documentAssembly: false,
+        },
+      });
+      
+      // Serialize the PDF to bytes
+      const pdfBytes = await pdfDoc.save();
+      
+      // Create a Blob from the PDF bytes
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      
+      // Generate a URL for the Blob
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      setProtectedPdfUrl(pdfUrl);
+      
       setIsComplete(true);
       toast({
         title: "PDF Protected Successfully!",
         description: "Your PDF has been encrypted with a password.",
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error protecting PDF:", error);
+      toast({
+        title: "Protection Failed",
+        description: "An error occurred while protecting your PDF. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const downloadProtectedPDF = () => {
+    if (!protectedPdfUrl) {
+      toast({
+        title: "Error",
+        description: "Protected PDF not available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create an anchor element and trigger download
+    const link = document.createElement('a');
+    link.href = protectedPdfUrl;
+    link.download = file ? `protected_${file.name}` : 'protected_document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     toast({
       title: "Download Started",
       description: "Your protected PDF is downloading."
     });
-    // In a real app, this would be a link to the protected PDF file
   };
+
+  // Cleanup function to revoke the object URL when component unmounts
+  const cleanupObjectUrl = () => {
+    if (protectedPdfUrl) {
+      URL.revokeObjectURL(protectedPdfUrl);
+    }
+  };
+
+  // Cleanup when component unmounts or when file changes
+  useState(() => {
+    return () => cleanupObjectUrl();
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -121,6 +195,8 @@ const ProtectPDF = () => {
                       setPassword("");
                       setConfirmPassword("");
                       setIsComplete(false);
+                      cleanupObjectUrl();
+                      setProtectedPdfUrl(null);
                     }}
                     variant="outline"
                   >
