@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Lock, Loader2 } from "lucide-react";
+import { ChevronRight, Lock, Loader2, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -9,6 +9,7 @@ import FileUploader from "@/components/FileUploader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PDFDocument } from "pdf-lib";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const ProtectPDF = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -63,9 +64,8 @@ const ProtectPDF = () => {
       const fileArrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
       
-      // Note: pdf-lib doesn't support direct encryption in the client
-      // We're using the most basic save options without encryption
-      // A proper solution would involve a server-side component
+      // In a real application, this would be where encryption would happen
+      // But pdf-lib doesn't support client-side encryption
       const pdfBytes = await pdfDoc.save();
       
       const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
@@ -75,10 +75,10 @@ const ProtectPDF = () => {
       
       toast({
         title: "PDF Processed",
-        description: "Note: True PDF encryption requires server-side processing. This is a client-side limitation.",
+        description: "Your PDF has been processed. Note that true encryption requires server-side processing.",
       });
       
-      console.log("PDF-lib doesn't support client-side encryption. A server would be needed for true password protection.");
+      console.log("PDF processed (without encryption - pdf-lib doesn't support client-side encryption)");
     } catch (error) {
       console.error("Error processing PDF:", error);
       toast({
@@ -149,6 +149,15 @@ const ProtectPDF = () => {
           </div>
           
           <div className="max-w-4xl mx-auto">
+            <Alert variant="warning" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Browser Limitation</AlertTitle>
+              <AlertDescription>
+                Due to browser limitations, true PDF encryption requires server-side processing. 
+                This demo will process your PDF but cannot add true password protection in the browser.
+              </AlertDescription>
+            </Alert>
+
             {isComplete ? (
               <div className="bg-card rounded-xl p-8 shadow-subtle text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -159,7 +168,8 @@ const ProtectPDF = () => {
                   Your PDF has been processed and is ready for download.
                 </p>
                 <p className="text-amber-500 mb-8 text-sm">
-                  Note: True PDF encryption requires server-side processing.
+                  Note: Due to browser limitations, this PDF is not truly encrypted with a password.
+                  For proper PDF encryption, server-side processing would be required.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
                   <Button 
