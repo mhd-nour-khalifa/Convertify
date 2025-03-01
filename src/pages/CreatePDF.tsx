@@ -3,15 +3,18 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
-import { Loader2, FilePlus2, Download, ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
+import { Loader2, FilePlus2, Download, ChevronRight, ChevronLeft, ArrowLeft, FileType as FileTypeIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 type FileType = "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "jpg" | "png" | "txt";
 
 const CreatePDF = () => {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
   const [createdPDF, setCreatedPDF] = useState<string | null>(null);
   const { toast } = useToast();
@@ -20,6 +23,7 @@ const CreatePDF = () => {
     setFiles(selectedFiles);
     setIsComplete(false);
     setCreatedPDF(null);
+    setProgress(0);
   };
 
   const getFileType = (filename: string): FileType | null => {
@@ -64,19 +68,29 @@ const CreatePDF = () => {
     }
 
     setIsProcessing(true);
+    setProgress(0);
     
-    // Simulate processing delay
-    setTimeout(() => {
-      // In a real app, this would be the actual PDF creation process
-      // For demo purposes, we'll just simulate success
-      setCreatedPDF("document.pdf");
-      setIsProcessing(false);
-      setIsComplete(true);
-      toast({
-        title: "PDF Successfully Created!",
-        description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF.`,
-      });
-    }, 2000);
+    // Simulate processing with progress updates
+    const totalSteps = 100;
+    let currentStep = 0;
+    
+    const progressInterval = setInterval(() => {
+      currentStep += Math.floor(Math.random() * 10) + 1;
+      if (currentStep >= totalSteps) {
+        currentStep = 100;
+        clearInterval(progressInterval);
+        
+        // Complete the conversion
+        setCreatedPDF("document.pdf");
+        setIsProcessing(false);
+        setIsComplete(true);
+        toast({
+          title: "PDF Successfully Created!",
+          description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF.`,
+        });
+      }
+      setProgress(currentStep);
+    }, 200);
   };
 
   const downloadPDF = () => {
@@ -84,7 +98,15 @@ const CreatePDF = () => {
       title: "Download Started",
       description: "Your created PDF is downloading.",
     });
+    
     // In a real app, this would be a link to download the created PDF file
+    // For demo purposes, create a dummy PDF download
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob(['PDF content'], { type: 'application/pdf' }));
+    link.download = createdPDF || 'document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -124,24 +146,26 @@ const CreatePDF = () => {
                   {files.length} file{files.length !== 1 ? 's' : ''} successfully converted to PDF format.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <button 
+                  <Button 
                     onClick={downloadPDF}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    className="bg-primary text-primary-foreground"
+                    size="lg"
                   >
                     <Download className="mr-2 h-5 w-5" />
                     Download PDF
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => {
                       setFiles([]);
                       setIsComplete(false);
                       setCreatedPDF(null);
                     }}
-                    className="bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors px-6 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                    variant="outline"
+                    size="lg"
                   >
                     <ArrowLeft className="mr-2 h-5 w-5" />
                     Create Another PDF
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
@@ -167,6 +191,9 @@ const CreatePDF = () => {
                             key={index} 
                             className="flex items-center bg-card rounded-lg p-4 shadow-sm"
                           >
+                            <div className="flex-shrink-0 bg-primary/10 p-2 rounded-full">
+                              <FileTypeIcon className="h-5 w-5 text-primary" />
+                            </div>
                             <div className="ml-4 flex-grow">
                               <div className="font-medium truncate">{file.name}</div>
                               {fileType && (
@@ -180,11 +207,22 @@ const CreatePDF = () => {
                       })}
                     </div>
                     
+                    {isProcessing && (
+                      <div className="mb-6">
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>Converting files to PDF...</span>
+                          <span>{progress}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+                    )}
+                    
                     <div className="flex justify-center">
-                      <button
+                      <Button
                         onClick={createPDF}
                         disabled={files.length === 0 || isProcessing}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-70 transition-colors px-8 py-3 rounded-lg font-medium inline-flex items-center justify-center"
+                        size="lg"
+                        className="px-8"
                       >
                         {isProcessing ? (
                           <>
@@ -197,7 +235,7 @@ const CreatePDF = () => {
                             Create PDF
                           </>
                         )}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
