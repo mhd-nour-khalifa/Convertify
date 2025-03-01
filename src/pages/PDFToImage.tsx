@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -46,7 +45,6 @@ const PDFToImage = () => {
     setPagePreviews([]);
     
     try {
-      // Extract the actual page count from the PDF
       const arrayBuffer = await selectedFile.arrayBuffer();
       setPdfArrayBuffer(arrayBuffer);
       
@@ -54,7 +52,6 @@ const PDFToImage = () => {
       const actualPageCount = pdfDoc.getPageCount();
       setPageCount(actualPageCount);
       
-      // Generate page previews
       generatePagePreviews(arrayBuffer);
       
       toast({
@@ -81,10 +78,9 @@ const PDFToImage = () => {
       const pdfDoc = await PDFDocument.load(arrayBuffer);
       const pageCount = pdfDoc.getPageCount();
       
-      // We'll generate page previews in batches to avoid browser hanging
       const batchSize = 5;
       for (let i = 0; i < pageCount; i += batchSize) {
-        await new Promise(resolve => setTimeout(resolve, 0)); // Let the UI breathe
+        await new Promise(resolve => setTimeout(resolve, 0));
         
         const batchEnd = Math.min(i + batchSize, pageCount);
         for (let j = i; j < batchEnd; j++) {
@@ -96,7 +92,6 @@ const PDFToImage = () => {
           previewsArray[j] = pdfBytes;
         }
         
-        // Update previews array as we go
         setPagePreviews([...previewsArray]);
       }
       
@@ -179,7 +174,6 @@ const PDFToImage = () => {
     setIsProcessing(true);
     
     try {
-      // Determine which pages to convert
       const pagesToConvert = selectedPages === "all" 
         ? Array.from({ length: pageCount }, (_, i) => i + 1)
         : [];
@@ -198,20 +192,16 @@ const PDFToImage = () => {
         }
       }
       
-      // Remove duplicates and sort
       const uniquePages = [...new Set(pagesToConvert)].sort((a, b) => a - b);
       
-      // Convert PDF pages to images using pdf-lib
       const pdfDoc = await PDFDocument.load(pdfArrayBuffer);
       const convertedImagesResult = [];
       
       for (const pageNum of uniquePages) {
-        // Create a new PDF with just this page
         const newPdfDoc = await PDFDocument.create();
         const [copiedPage] = await newPdfDoc.copyPages(pdfDoc, [pageNum - 1]);
         newPdfDoc.addPage(copiedPage);
         
-        // Save as data URI for preview and download
         const pdfBytes = await newPdfDoc.saveAsBase64({ dataUri: true });
         
         convertedImagesResult.push({
@@ -240,7 +230,6 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
-      // Get the iframe element containing the PDF instead of the div wrapper
       const iframeElement = document.querySelector(`iframe[title="Page ${pageNumber}"]`);
       
       if (!iframeElement) {
@@ -252,18 +241,13 @@ const PDFToImage = () => {
         return;
       }
 
-      // Create a canvas element to render the PDF page
       const canvas = document.createElement('canvas');
+      const scale = dpi / 72;
+      canvas.width = 850 * scale;
+      canvas.height = 1100 * scale;
       
-      // Set canvas size based on DPI
-      const scale = dpi / 72; // PDF standard is 72 DPI
-      canvas.width = 850 * scale; // Standard PDF width
-      canvas.height = 1100 * scale; // Standard PDF height
+      const dataUrl = imageData;
       
-      // Render the iframe content to a new window, then to the canvas
-      const dataUrl = imageData; // This is the PDF data URI
-      
-      // Open the PDF in a new window temporarily
       const newWindow = window.open('', '_blank');
       if (!newWindow) {
         toast({
@@ -274,7 +258,6 @@ const PDFToImage = () => {
         return;
       }
       
-      // Set window content to the PDF
       newWindow.document.write(`
         <html>
           <head>
@@ -301,13 +284,10 @@ const PDFToImage = () => {
         </html>
       `);
       
-      // When the iframe loads, render it to an image
       newWindow.document.querySelector('iframe')?.addEventListener('load', async () => {
         try {
-          // Wait a moment for the PDF to render
           await new Promise(resolve => setTimeout(resolve, 1000));
           
-          // Use html-to-image on the document body
           let imageDataUrl;
           switch (format) {
             case "jpg":
@@ -335,7 +315,7 @@ const PDFToImage = () => {
               });
               break;
             case "webp":
-              imageDataUrl = await htmlToImage.toWebp(newWindow.document.body, {
+              imageDataUrl = await htmlToImage.toPng(newWindow.document.body, {
                 quality: 1.0,
                 backgroundColor: '#ffffff',
                 width: canvas.width,
@@ -355,7 +335,6 @@ const PDFToImage = () => {
               });
           }
           
-          // Create and trigger download
           const link = document.createElement('a');
           link.href = imageDataUrl;
           link.download = `page-${pageNumber}.${format}`;
@@ -363,7 +342,6 @@ const PDFToImage = () => {
           link.click();
           document.body.removeChild(link);
           
-          // Close the temporary window
           newWindow.close();
           
           toast({
@@ -380,9 +358,7 @@ const PDFToImage = () => {
             variant: "destructive",
           });
           
-          // Fallback method
           try {
-            // Try direct conversion from PDF data
             const img = new Image();
             img.src = imageData;
             
@@ -400,17 +376,13 @@ const PDFToImage = () => {
               ctx.fillRect(0, 0, canvas.width, canvas.height);
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
               
-              // Get the image data
               let imgDataUrl;
-              if (format === 'png') {
+              if (format === 'png' || format === 'webp') {
                 imgDataUrl = canvas.toDataURL('image/png');
-              } else if (format === 'webp') {
-                imgDataUrl = canvas.toDataURL('image/webp');
               } else {
                 imgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
               }
               
-              // Download
               const link = document.createElement('a');
               link.href = imgDataUrl;
               link.download = `page-${pageNumber}.${format}`;
@@ -444,14 +416,12 @@ const PDFToImage = () => {
   };
 
   const downloadImages = () => {
-    // For small number of images, download them sequentially
     if (convertedImages.length > 0) {
       toast({
         title: "Download Started",
         description: `Your ${convertedImages.length} ${format.toUpperCase()} images are downloading.`,
       });
       
-      // Add a small delay between downloads to prevent browser blocking
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
           downloadImage(image.page, image.thumbnail, index);
@@ -465,7 +435,6 @@ const PDFToImage = () => {
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -478,7 +447,6 @@ const PDFToImage = () => {
             <span className="text-foreground font-medium">PDF to Image</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Convert PDF to Images</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -499,7 +467,6 @@ const PDFToImage = () => {
                   </p>
                 </div>
                 
-                {/* Image Preview Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
                   {convertedImages.map((image, index) => (
                     <div key={image.page} className="bg-muted rounded-lg overflow-hidden">
@@ -555,7 +522,6 @@ const PDFToImage = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -567,7 +533,6 @@ const PDFToImage = () => {
                 
                 {file && pageCount > 0 && (
                   <div className="mt-8">
-                    {/* PDF Preview Section */}
                     {isGeneratingPreviews ? (
                       <div className="bg-card rounded-xl p-6 shadow-subtle mb-8">
                         <div className="flex flex-col items-center justify-center py-12">
@@ -605,7 +570,6 @@ const PDFToImage = () => {
                       </p>
                       
                       <div className="space-y-6">
-                        {/* Page Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Pages to Convert
@@ -652,7 +616,6 @@ const PDFToImage = () => {
                           </div>
                         </div>
                         
-                        {/* Format Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Image Format
@@ -694,7 +657,6 @@ const PDFToImage = () => {
                           </div>
                         </div>
                         
-                        {/* DPI Selection */}
                         <div>
                           <label className="block text-base font-medium mb-2">
                             Resolution (DPI)
@@ -761,7 +723,6 @@ const PDFToImage = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Convert PDF to Images</h3>
