@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Lock, Loader2 } from "lucide-react";
@@ -23,7 +22,6 @@ const ProtectPDF = () => {
     if (files.length === 0) return;
     setFile(files[0]);
     setIsComplete(false);
-    // Clear any previous protected PDF URL
     if (protectedPdfUrl) {
       URL.revokeObjectURL(protectedPdfUrl);
       setProtectedPdfUrl(null);
@@ -61,27 +59,18 @@ const ProtectPDF = () => {
     setIsProcessing(true);
     
     try {
-      // Read the file as an ArrayBuffer
       const fileArrayBuffer = await file.arrayBuffer();
-      
-      // Load the PDF document
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
-      
-      // pdf-lib requires using the save options to set passwords
       const encryptedPdf = await pdfDoc.save({
-        // Using the correct properties for PDFLib's SaveOptions
-        userPassword: password, // User password (will be required to open)
-        ownerPassword: password, // Owner password (same as user for simplicity)
-        // Note: pdf-lib has limited permission controls in this version
+        requireUserPassword: true,
+        standardV4Options: {
+          userPassword: password,
+          ownerPassword: password,
+        }
       });
-      
-      // Create a Blob from the PDF bytes
       const pdfBlob = new Blob([encryptedPdf], { type: 'application/pdf' });
-      
-      // Generate a URL for the Blob
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setProtectedPdfUrl(pdfUrl);
-      
       setIsComplete(true);
       toast({
         title: "PDF Protected Successfully!",
@@ -109,7 +98,6 @@ const ProtectPDF = () => {
       return;
     }
     
-    // Create an anchor element and trigger download
     const link = document.createElement('a');
     link.href = protectedPdfUrl;
     link.download = file ? `protected_${file.name}` : 'protected_document.pdf';
@@ -123,14 +111,12 @@ const ProtectPDF = () => {
     });
   };
 
-  // Cleanup function to revoke the object URL when component unmounts
   const cleanupObjectUrl = () => {
     if (protectedPdfUrl) {
       URL.revokeObjectURL(protectedPdfUrl);
     }
   };
 
-  // Use useEffect for cleanup instead of useState
   useEffect(() => {
     return () => cleanupObjectUrl();
   }, [protectedPdfUrl]);
@@ -140,7 +126,6 @@ const ProtectPDF = () => {
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -153,7 +138,6 @@ const ProtectPDF = () => {
             <span className="text-foreground font-medium">Protect PDF</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Protect PDF with Password</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -195,7 +179,6 @@ const ProtectPDF = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -255,7 +238,6 @@ const ProtectPDF = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Protect a PDF with Password</h3>
