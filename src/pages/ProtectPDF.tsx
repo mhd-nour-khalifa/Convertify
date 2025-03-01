@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Lock, Loader2 } from "lucide-react";
@@ -61,13 +62,14 @@ const ProtectPDF = () => {
     try {
       const fileArrayBuffer = await file.arrayBuffer();
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
+      
+      // Fix: Using the correct options structure for password protection
       const encryptedPdf = await pdfDoc.save({
-        requireUserPassword: true,
-        standardV4Options: {
-          userPassword: password,
-          ownerPassword: password,
-        }
+        // PDF encryption options
+        userPassword: password,
+        ownerPassword: password,
       });
+      
       const pdfBlob = new Blob([encryptedPdf], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setProtectedPdfUrl(pdfUrl);
