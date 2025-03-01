@@ -34,7 +34,6 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Error writing to localStorage:", error);
       toast({
-        title: "Warning",
         description: "Unable to save operation count",
       });
     }

@@ -67,7 +67,9 @@ const PDFToText = () => {
         setExtractedText("");
       } else {
         setExtractedText(result.text);
-        toast.success("Success", "Text extracted successfully!");
+        toast({
+          description: "Text extracted successfully!"
+        });
         
         // Increment the operation counter
         incrementCounter();
@@ -76,7 +78,10 @@ const PDFToText = () => {
       console.error("Error extracting text:", err);
       const errorMessage = analyzeExtractionError(err);
       setError(errorMessage);
-      toast.error("Extraction Failed", errorMessage);
+      toast({
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -84,7 +89,9 @@ const PDFToText = () => {
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(extractedText);
-    toast.success("Copied!", "Text copied to clipboard");
+    toast({
+      description: "Text copied to clipboard"
+    });
   };
 
   const downloadText = () => {
@@ -96,7 +103,9 @@ const PDFToText = () => {
     element.click();
     document.body.removeChild(element);
     
-    toast.success("Downloaded!", "Text file downloaded successfully");
+    toast({
+      description: "Text file downloaded successfully"
+    });
   };
 
   return (

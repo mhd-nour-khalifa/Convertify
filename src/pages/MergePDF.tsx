@@ -1,10 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { ChevronRight, MoveDown, MoveUp, Trash, Combine, ArrowLeft, Download, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
-import { ArrowLeft, MoveDown, MoveUp, Trash, Combine, ChevronRight, Download, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { PDFDocument } from 'pdf-lib';
 import { useCounter } from "@/context/CounterContext";
@@ -50,7 +50,9 @@ const MergePDF = () => {
 
   const mergePDFs = async () => {
     if (files.length < 2) {
-      toast.error("Not enough files", "You need at least 2 PDF files to merge");
+      toast({
+        description: "You need at least 2 PDF files to merge"
+      });
       return;
     }
 
@@ -70,7 +72,10 @@ const MergePDF = () => {
           console.log(`Successfully added ${copiedPages.length} pages from ${file.name}`);
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          toast.error("Error processing file", `Could not process ${file.name}. The file might be corrupted or password-protected.`);
+          toast({
+            description: `Could not process ${file.name}. The file might be corrupted or password-protected.`,
+            variant: "destructive"
+          });
         }
       }
       
@@ -84,12 +89,17 @@ const MergePDF = () => {
       
       setMergedPdfUrl(url);
       setIsComplete(true);
-      toast.success("PDFs Successfully Merged!", `Combined ${mergedPdf.getPageCount()} pages from ${files.length} PDF files.`);
+      toast({
+        description: `Combined ${mergedPdf.getPageCount()} pages from ${files.length} PDF files.`
+      });
       
       incrementCounter();
     } catch (error) {
       console.error("PDF merge error:", error);
-      toast.error("Error", "Failed to merge PDF files. Please try again.");
+      toast({
+        description: "Failed to merge PDF files. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -97,7 +107,10 @@ const MergePDF = () => {
 
   const downloadMergedPDF = () => {
     if (!mergedPdfUrl) {
-      toast.error("Error", "No merged PDF available to download.");
+      toast({
+        description: "No merged PDF available to download.",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -112,7 +125,9 @@ const MergePDF = () => {
     downloadLink.click();
     document.body.removeChild(downloadLink);
     
-    toast.success("Download Started", "Your merged PDF is downloading.");
+    toast({
+      description: "Your merged PDF is downloading."
+    });
   };
 
   return (
