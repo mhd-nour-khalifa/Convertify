@@ -49,9 +49,7 @@ const UnlockPDF = () => {
     try {
       const fileArrayBuffer = await file.arrayBuffer();
       
-      const pdfDoc = await PDFDocument.load(fileArrayBuffer, { 
-        password: password
-      });
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer);
       
       const pdfBytes = await pdfDoc.save();
       const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
