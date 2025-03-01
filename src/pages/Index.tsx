@@ -3,15 +3,32 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import FeatureSection from "@/components/FeatureSection";
 import Footer from "@/components/Footer";
-import { ChevronRight, CheckCircle2, Award, Shield, Zap } from "lucide-react";
+import { ChevronRight, CheckCircle2, Award, Shield, Zap, FileText } from "lucide-react";
+import { useCounter } from "@/context/CounterContext";
 
 const Index = () => {
+  const { totalOperations } = useCounter();
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-grow">
         <Hero />
         <FeatureSection />
+        
+        {/* Stats Section */}
+        <section className="py-10 bg-primary/5">
+          <div className="container mx-auto px-4">
+            <div className="text-center">
+              <div className="flex justify-center items-center mb-2">
+                <FileText className="text-primary mr-2" />
+                <h3 className="text-xl font-medium">Operations Completed</h3>
+              </div>
+              <p className="text-4xl font-bold text-primary">{totalOperations}</p>
+              <p className="text-muted-foreground mt-2">Files processed with our tools</p>
+            </div>
+          </div>
+        </section>
         
         {/* How It Works Section */}
         <section className="py-20">
