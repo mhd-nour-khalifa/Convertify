@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, RotateCcw, RotateCw, Download, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +8,7 @@ import FileUploader from "@/components/FileUploader";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { PDFDocument, degrees } from "pdf-lib";
 
 type RotationDegree = "90" | "180" | "270";
 
@@ -17,15 +17,17 @@ const RotatePDF = () => {
   const [rotationDegree, setRotationDegree] = useState<RotationDegree>("90");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [rotatedPdfUrl, setRotatedPdfUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFilesSelected = (files: File[]) => {
     if (files.length === 0) return;
     setFile(files[0]);
     setIsComplete(false);
+    cleanupObjectUrl();
   };
 
-  const handleRotate = () => {
+  const handleRotate = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -37,31 +39,89 @@ const RotatePDF = () => {
 
     setIsProcessing(true);
     
-    // Simulate processing delay
-    setTimeout(() => {
+    try {
+      const fileArrayBuffer = await file.arrayBuffer();
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer);
+      
+      const pageCount = pdfDoc.getPageCount();
+      
+      const rotateAngle = parseInt(rotationDegree);
+      
+      for (let i = 0; i < pageCount; i++) {
+        const page = pdfDoc.getPage(i);
+        page.setRotation(degrees(rotateAngle));
+      }
+      
+      const pdfBytes = await pdfDoc.save();
+      
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      setRotatedPdfUrl(pdfUrl);
+      
       setIsProcessing(false);
       setIsComplete(true);
+      
       toast({
         title: "PDF Rotated Successfully!",
         description: `Your PDF has been rotated ${rotationDegree} degrees.`,
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error rotating PDF:", error);
+      setIsProcessing(false);
+      
+      toast({
+        title: "Error Rotating PDF",
+        description: "There was a problem rotating your PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadRotatedPDF = () => {
+    if (!rotatedPdfUrl) {
+      toast({
+        title: "Error",
+        description: "Rotated PDF not available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = rotatedPdfUrl;
+    link.download = file ? `rotated_${file.name}` : 'rotated_document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     toast({
       title: "Download Started",
       description: "Your rotated PDF is downloading."
     });
-    // In a real app, this would be a link to the rotated PDF file
   };
+  
+  const resetState = () => {
+    setFile(null);
+    setIsComplete(false);
+    cleanupObjectUrl();
+  };
+  
+  const cleanupObjectUrl = () => {
+    if (rotatedPdfUrl) {
+      URL.revokeObjectURL(rotatedPdfUrl);
+      setRotatedPdfUrl(null);
+    }
+  };
+  
+  useEffect(() => {
+    return () => cleanupObjectUrl();
+  }, [rotatedPdfUrl]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -74,7 +134,6 @@ const RotatePDF = () => {
             <span className="text-foreground font-medium">Rotate PDF</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Rotate PDF Pages</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -101,10 +160,7 @@ const RotatePDF = () => {
                     Download Rotated PDF
                   </Button>
                   <Button 
-                    onClick={() => {
-                      setFile(null);
-                      setIsComplete(false);
-                    }}
+                    onClick={resetState}
                     variant="outline"
                   >
                     Rotate Another PDF
@@ -113,7 +169,6 @@ const RotatePDF = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".pdf"
                   maxSize={10}
@@ -187,7 +242,6 @@ const RotatePDF = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {!file && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Rotate a PDF</h3>
