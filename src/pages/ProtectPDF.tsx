@@ -69,8 +69,8 @@ const ProtectPDF = () => {
       
       // pdf-lib requires using the save options to set passwords
       const encryptedPdf = await pdfDoc.save({
-        // These are the correct properties for PDFLib's SaveOptions
-        password: password, // User password
+        // Using the correct properties for PDFLib's SaveOptions
+        userPassword: password, // User password (will be required to open)
         ownerPassword: password, // Owner password (same as user for simplicity)
         // Note: pdf-lib has limited permission controls in this version
       });
