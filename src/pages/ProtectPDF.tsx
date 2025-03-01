@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Lock, Loader2 } from "lucide-react";
@@ -66,12 +67,12 @@ const ProtectPDF = () => {
       // Load the PDF document
       const pdfDoc = await PDFDocument.load(fileArrayBuffer);
       
-      // Encrypt the PDF with the provided password
-      // The encrypt method in pdf-lib is used like this:
+      // pdf-lib requires using the save options to set passwords
       const encryptedPdf = await pdfDoc.save({
-        userPassword: password,
-        ownerPassword: password,
-        // Restrict permissions (if needed, but not all versions support these)
+        // These are the correct properties for PDFLib's SaveOptions
+        password: password, // User password
+        ownerPassword: password, // Owner password (same as user for simplicity)
+        // Note: pdf-lib has limited permission controls in this version
       });
       
       // Create a Blob from the PDF bytes
