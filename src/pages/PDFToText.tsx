@@ -1,12 +1,13 @@
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Copy, Download } from "lucide-react";
+import { ChevronRight, Copy, Download, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -17,7 +18,24 @@ const PDFToText = () => {
   const [extractedText, setExtractedText] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const analyzeExtractionError = (error: any): string => {
+    const errorMsg = error?.message || String(error);
+    
+    if (errorMsg.includes("password")) {
+      return "This PDF appears to be password-protected. Please unlock the PDF before uploading.";
+    } else if (errorMsg.includes("Invalid PDF")) {
+      return "The file doesn't appear to be a valid PDF. Please check the file and try again.";
+    } else if (errorMsg.includes("corrupt")) {
+      return "This PDF file appears to be corrupted. Please try with another file.";
+    } else if (extractedText.trim() === "") {
+      return "No text could be extracted. This might be a scanned PDF or image-based PDF that requires OCR to extract text.";
+    }
+    
+    return "Failed to extract text from PDF. Please try another file.";
+  };
 
   const handleFilesSelected = async (files: File[]) => {
     if (files.length === 0) return;
@@ -25,24 +43,41 @@ const PDFToText = () => {
     const file = files[0];
     setFileName(file.name);
     setIsProcessing(true);
+    setError(null);
     
     try {
-      // Convert PDF to text using pdf-parse
-      const arrayBuffer = await file.arrayBuffer();
-      const data = new Uint8Array(arrayBuffer);
-      const result = await pdfParse(data);
-      setExtractedText(result.text);
+      // Check if it's really a PDF by checking the magic number
+      const buffer = await file.arrayBuffer();
+      const header = new Uint8Array(buffer.slice(0, 5));
+      const headerStr = String.fromCharCode(...header);
       
+      if (!headerStr.startsWith("%PDF-")) {
+        throw new Error("Invalid PDF file format");
+      }
+      
+      // Convert PDF to text using pdf-parse
+      const data = new Uint8Array(buffer);
+      const result = await pdfParse(data);
+      
+      // Check if we got meaningful text back
+      if (result.text.trim().length === 0) {
+        setError("No text found in the PDF. This might be a scanned document that requires OCR to extract text.");
+        setExtractedText("");
+      } else {
+        setExtractedText(result.text);
+        toast({
+          title: "Success",
+          description: "Text extracted successfully!",
+          duration: 3000,
+        });
+      }
+    } catch (err) {
+      console.error("Error extracting text:", err);
+      const errorMessage = analyzeExtractionError(err);
+      setError(errorMessage);
       toast({
-        title: "Success",
-        description: "Text extracted successfully!",
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error extracting text:", error);
-      toast({
-        title: "Error",
-        description: "Failed to extract text from PDF",
+        title: "Extraction Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -107,7 +142,7 @@ const PDFToText = () => {
         </div>
 
         {/* File Upload Section */}
-        <div className="max-w-2xl mx-auto mb-8">
+        <div className="max-w-2xl mx-auto mb-4">
           <FileUploader
             accept=".pdf"
             maxSize={10}
@@ -117,6 +152,28 @@ const PDFToText = () => {
             description="Drop your PDF here or click to browse"
           />
         </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="max-w-2xl mx-auto mb-6">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Extraction Failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+            
+            {error.includes("scanned") && (
+              <div className="mt-4 p-4 bg-muted rounded-md text-sm">
+                <h3 className="font-medium mb-2">Tips:</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>For scanned PDFs, you need OCR (Optical Character Recognition) to extract text</li>
+                  <li>Try using specialized OCR software like Adobe Acrobat Pro or online OCR services</li>
+                  <li>Some online PDF-to-text converters offer OCR capabilities</li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Results Section */}
         {extractedText && (
