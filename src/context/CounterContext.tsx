@@ -33,9 +33,7 @@ export const CounterProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem('totalOperations', totalOperations.toString());
     } catch (error) {
       console.error("Error writing to localStorage:", error);
-      toast({
-        description: "Unable to save operation count",
-      });
+      toast("Unable to save operation count");
     }
   }, [totalOperations]);
 

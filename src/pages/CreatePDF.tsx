@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -63,9 +62,7 @@ const CreatePDF = () => {
 
   const createPDF = async () => {
     if (files.length === 0) {
-      toast({
-        description: "Please upload files to convert to PDF"
-      });
+      toast("Please upload files to convert to PDF");
       return;
     }
 
@@ -192,34 +189,24 @@ const CreatePDF = () => {
       setTimeout(() => {
         setIsProcessing(false);
         setIsComplete(true);
-        toast({
-          description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF with content.`
-        });
+        toast(`${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF with content.`);
         
         incrementCounter();
       }, 500);
     } catch (error) {
       console.error("Error creating PDF:", error);
       setIsProcessing(false);
-      toast({
-        description: "An error occurred while creating the PDF. Please try again.",
-        variant: "destructive"
-      });
+      toast("An error occurred while creating the PDF. Please try again.", { variant: "destructive" });
     }
   };
 
   const downloadPDF = () => {
     if (!createdPDF) {
-      toast({
-        description: "No PDF available to download",
-        variant: "destructive"
-      });
+      toast("No PDF available to download", { variant: "destructive" });
       return;
     }
     
-    toast({
-      description: "Your created PDF is downloading."
-    });
+    toast("Your created PDF is downloading.");
     
     const link = document.createElement('a');
     link.href = createdPDF;

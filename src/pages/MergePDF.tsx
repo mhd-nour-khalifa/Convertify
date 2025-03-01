@@ -50,9 +50,7 @@ const MergePDF = () => {
 
   const mergePDFs = async () => {
     if (files.length < 2) {
-      toast({
-        description: "You need at least 2 PDF files to merge"
-      });
+      toast("You need at least 2 PDF files to merge");
       return;
     }
 
@@ -72,10 +70,7 @@ const MergePDF = () => {
           console.log(`Successfully added ${copiedPages.length} pages from ${file.name}`);
         } catch (fileError) {
           console.error(`Error processing file ${file.name}:`, fileError);
-          toast({
-            description: `Could not process ${file.name}. The file might be corrupted or password-protected.`,
-            variant: "destructive"
-          });
+          toast(`Could not process ${file.name}. The file might be corrupted or password-protected.`, { variant: "destructive" });
         }
       }
       
@@ -89,17 +84,12 @@ const MergePDF = () => {
       
       setMergedPdfUrl(url);
       setIsComplete(true);
-      toast({
-        description: `Combined ${mergedPdf.getPageCount()} pages from ${files.length} PDF files.`
-      });
+      toast(`Combined ${mergedPdf.getPageCount()} pages from ${files.length} PDF files.`);
       
       incrementCounter();
     } catch (error) {
       console.error("PDF merge error:", error);
-      toast({
-        description: "Failed to merge PDF files. Please try again.",
-        variant: "destructive"
-      });
+      toast("Failed to merge PDF files. Please try again.", { variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
@@ -107,10 +97,7 @@ const MergePDF = () => {
 
   const downloadMergedPDF = () => {
     if (!mergedPdfUrl) {
-      toast({
-        description: "No merged PDF available to download.",
-        variant: "destructive"
-      });
+      toast("No merged PDF available to download.", { variant: "destructive" });
       return;
     }
 
@@ -125,9 +112,7 @@ const MergePDF = () => {
     downloadLink.click();
     document.body.removeChild(downloadLink);
     
-    toast({
-      description: "Your merged PDF is downloading."
-    });
+    toast("Your merged PDF is downloading.");
   };
 
   return (
