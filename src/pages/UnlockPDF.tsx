@@ -51,9 +51,13 @@ const UnlockPDF = () => {
       // Attempt to unlock the PDF using the provided password
       const fileArrayBuffer = await file.arrayBuffer();
       
-      // Attempt to load the PDF with the password
+      // The fix: Use the correct LoadOptions format for pdf-lib
+      // The password should be provided as { password: string }
       const pdfDoc = await PDFDocument.load(fileArrayBuffer, { 
-        password: password 
+        updateMetadata: false,
+        ignoreEncryption: false,
+        parseSpeed: -1,
+        password
       });
       
       // If we reach here, the password was correct
