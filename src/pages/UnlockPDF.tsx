@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Unlock, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -8,21 +8,25 @@ import Footer from "@/components/Footer";
 import FileUploader from "@/components/FileUploader";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PDFDocument } from "pdf-lib";
+import BrowserLimitationAlert from "@/components/pdf-tools/BrowserLimitationAlert";
 
 const UnlockPDF = () => {
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [unlockedPdfUrl, setUnlockedPdfUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFilesSelected = (files: File[]) => {
     if (files.length === 0) return;
     setFile(files[0]);
     setIsComplete(false);
+    cleanupObjectUrl();
   };
 
-  const handleUnlock = () => {
+  const handleUnlock = async () => {
     if (!file) {
       toast({
         title: "No file selected",
@@ -43,24 +47,81 @@ const UnlockPDF = () => {
 
     setIsProcessing(true);
     
-    // Simulate processing delay
-    setTimeout(() => {
-      setIsProcessing(false);
+    try {
+      // Attempt to unlock the PDF using the provided password
+      const fileArrayBuffer = await file.arrayBuffer();
+      
+      // Attempt to load the PDF with the password
+      const pdfDoc = await PDFDocument.load(fileArrayBuffer, { 
+        password: password 
+      });
+      
+      // If we reach here, the password was correct
+      const pdfBytes = await pdfDoc.save(); // Save without encryption
+      
+      const pdfBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      setUnlockedPdfUrl(pdfUrl);
       setIsComplete(true);
+      
       toast({
         title: "PDF Unlocked Successfully!",
         description: "Password protection has been removed from your PDF.",
       });
-    }, 2000);
+      
+      console.log("PDF unlocked successfully");
+    } catch (error) {
+      console.error("Error unlocking PDF:", error);
+      toast({
+        title: "Unlocking Failed",
+        description: "The password may be incorrect or the PDF cannot be unlocked in the browser.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const downloadUnlockedPDF = () => {
+    if (!unlockedPdfUrl) {
+      toast({
+        title: "Error",
+        description: "Unlocked PDF not available. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = unlockedPdfUrl;
+    link.download = file ? `unlocked_${file.name}` : 'unlocked_document.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     toast({
       title: "Download Started",
       description: "Your unlocked PDF is downloading."
     });
-    // In a real app, this would be a link to the unlocked PDF file
   };
+
+  const resetState = () => {
+    setFile(null);
+    setPassword("");
+    setIsComplete(false);
+    cleanupObjectUrl();
+  };
+
+  const cleanupObjectUrl = () => {
+    if (unlockedPdfUrl) {
+      URL.revokeObjectURL(unlockedPdfUrl);
+      setUnlockedPdfUrl(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => cleanupObjectUrl();
+  }, [unlockedPdfUrl]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -89,6 +150,8 @@ const UnlockPDF = () => {
           </div>
           
           <div className="max-w-4xl mx-auto">
+            <BrowserLimitationAlert />
+            
             {isComplete ? (
               <div className="bg-card rounded-xl p-8 shadow-subtle text-center">
                 <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -106,11 +169,7 @@ const UnlockPDF = () => {
                     Download Unlocked PDF
                   </Button>
                   <Button 
-                    onClick={() => {
-                      setFile(null);
-                      setPassword("");
-                      setIsComplete(false);
-                    }}
+                    onClick={resetState}
                     variant="outline"
                   >
                     Unlock Another PDF
