@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -8,6 +7,7 @@ import { Link } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { PDFDocument } from "pdf-lib";
 
 type FileType = "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "jpg" | "png" | "txt";
 
@@ -57,7 +57,7 @@ const CreatePDF = () => {
     }
   };
 
-  const createPDF = () => {
+  const createPDF = async () => {
     if (files.length === 0) {
       toast({
         title: "No files selected",
@@ -70,40 +70,100 @@ const CreatePDF = () => {
     setIsProcessing(true);
     setProgress(0);
     
-    // Simulate processing with progress updates
-    const totalSteps = 100;
-    let currentStep = 0;
-    
-    const progressInterval = setInterval(() => {
-      currentStep += Math.floor(Math.random() * 10) + 1;
-      if (currentStep >= totalSteps) {
-        currentStep = 100;
-        clearInterval(progressInterval);
+    try {
+      const totalSteps = 100;
+      let currentStep = 0;
+      
+      const progressInterval = setInterval(() => {
+        currentStep += Math.floor(Math.random() * 10) + 1;
+        if (currentStep >= totalSteps) {
+          currentStep = 100;
+          clearInterval(progressInterval);
+        }
+        setProgress(currentStep);
+      }, 200);
+      
+      const pdfDoc = await PDFDocument.create();
+      
+      for (const file of files) {
+        const page = pdfDoc.addPage([600, 800]);
+        const fileType = getFileType(file.name);
         
-        // Complete the conversion
-        setCreatedPDF("document.pdf");
+        page.drawText(`File: ${file.name}`, {
+          x: 50,
+          y: 750,
+          size: 16,
+        });
+        
+        if (fileType) {
+          page.drawText(`Type: ${getFileTypeName(fileType)}`, {
+            x: 50,
+            y: 720,
+            size: 12,
+          });
+          
+          page.drawText(`Size: ${(file.size / (1024 * 1024)).toFixed(2)} MB`, {
+            x: 50,
+            y: 700,
+            size: 12,
+          });
+        }
+        
+        page.drawText("This is a simulated PDF conversion. In a real application, the actual", {
+          x: 50,
+          y: 650,
+          size: 10,
+        });
+        
+        page.drawText("file content would be converted and embedded in the PDF.", {
+          x: 50,
+          y: 630,
+          size: 10,
+        });
+      }
+      
+      const pdfBytes = await pdfDoc.save();
+      
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      setCreatedPDF(URL.createObjectURL(blob));
+      
+      setTimeout(() => {
         setIsProcessing(false);
         setIsComplete(true);
         toast({
           title: "PDF Successfully Created!",
           description: `${files.length} file${files.length !== 1 ? 's' : ''} converted to PDF.`,
         });
-      }
-      setProgress(currentStep);
-    }, 200);
+      }, 500);
+    } catch (error) {
+      console.error("Error creating PDF:", error);
+      setIsProcessing(false);
+      toast({
+        title: "Error creating PDF",
+        description: "An error occurred while creating the PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const downloadPDF = () => {
+    if (!createdPDF) {
+      toast({
+        title: "Error",
+        description: "No PDF available to download",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     toast({
       title: "Download Started",
       description: "Your created PDF is downloading.",
     });
     
-    // In a real app, this would be a link to download the created PDF file
-    // For demo purposes, create a dummy PDF download
     const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob(['PDF content'], { type: 'application/pdf' }));
-    link.download = createdPDF || 'document.pdf';
+    link.href = createdPDF;
+    link.download = "document.pdf";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -114,7 +174,6 @@ const CreatePDF = () => {
       <Header />
       <main className="flex-grow pt-24 pb-20">
         <div className="container mx-auto px-4">
-          {/* Breadcrumb */}
           <nav className="mb-8 flex items-center text-sm">
             <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
               Home
@@ -127,7 +186,6 @@ const CreatePDF = () => {
             <span className="text-foreground font-medium">Create PDF</span>
           </nav>
           
-          {/* Page Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-semibold mb-4">Create PDF Files</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -170,7 +228,6 @@ const CreatePDF = () => {
               </div>
             ) : (
               <>
-                {/* File Uploader */}
                 <FileUploader
                   accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.txt"
                   maxSize={10}
@@ -240,7 +297,6 @@ const CreatePDF = () => {
                   </div>
                 )}
                 
-                {/* Instructions */}
                 {files.length === 0 && (
                   <div className="bg-secondary/50 rounded-xl p-6 mt-8">
                     <h3 className="text-lg font-medium mb-3">How to Create PDF Files</h3>
