@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -230,52 +231,74 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
+      // Create a container div to hold the PDF
       const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '-9999px';
-      container.style.width = '1000px';
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.width = '800px';
       container.style.height = '1000px';
+      container.style.zIndex = '-9999';
+      container.style.backgroundColor = '#ffffff';
+      container.style.overflow = 'hidden';
       
-      const embed = document.createElement('embed');
-      embed.src = imageData;
-      embed.type = 'application/pdf';
-      embed.style.width = '100%';
-      embed.style.height = '100%';
+      // Add PDF content using object tag which has better rendering
+      const obj = document.createElement('object');
+      obj.data = imageData;
+      obj.type = 'application/pdf';
+      obj.style.width = '100%';
+      obj.style.height = '100%';
       
-      container.appendChild(embed);
+      container.appendChild(obj);
       document.body.appendChild(container);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Allow more time for the PDF to render properly
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       const scale = dpi / 72;
       
       let imageDataUrl;
       
       try {
+        // Convert the rendered PDF to the selected image format
         switch (format) {
           case "jpg":
             imageDataUrl = await htmlToImage.toJpeg(container, {
               quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              canvasWidth: 800 * scale,
+              canvasHeight: 1000 * scale
             });
             break;
           case "png":
-          case "webp":
             imageDataUrl = await htmlToImage.toPng(container, {
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              canvasWidth: 800 * scale,
+              canvasHeight: 1000 * scale
+            });
+            break;
+          case "webp":
+            // Use PNG as fallback for WebP as html-to-image doesn't support WebP directly
+            imageDataUrl = await htmlToImage.toPng(container, {
+              backgroundColor: '#ffffff',
+              pixelRatio: scale,
+              canvasWidth: 800 * scale,
+              canvasHeight: 1000 * scale
             });
             break;
           default:
             imageDataUrl = await htmlToImage.toJpeg(container, {
               quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              canvasWidth: 800 * scale,
+              canvasHeight: 1000 * scale
             });
         }
         
+        // Create download link
         const link = document.createElement('a');
         link.href = imageDataUrl;
         link.download = `page-${pageNumber}.${format}`;
@@ -290,6 +313,7 @@ const PDFToImage = () => {
       } catch (error) {
         console.error("Error converting to image:", error);
         
+        // Fallback: download as PDF
         toast({
           title: "Using fallback download method",
           description: `Downloading page ${pageNumber} as PDF instead.`,
@@ -303,6 +327,7 @@ const PDFToImage = () => {
         document.body.removeChild(link);
       }
       
+      // Clean up by removing the container
       document.body.removeChild(container);
       
     } catch (error) {
