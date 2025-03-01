@@ -230,143 +230,88 @@ const PDFToImage = () => {
 
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
-      const newWindow = window.open('', '_blank');
-      if (!newWindow) {
-        throw new Error('Could not open new window for rendering');
-      }
-
-      newWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>PDF Renderer</title>
-          <style>
-            body, html { margin: 0; padding: 0; height: 100%; }
-            #pdf-container { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; background: white; }
-            #pdf-viewer { width: 100%; height: 100%; }
-          </style>
-        </head>
-        <body>
-          <div id="pdf-container">
-            <object 
-              id="pdf-viewer" 
-              data="${imageData}" 
-              type="application/pdf">
-            </object>
-          </div>
-          <script>
-            document.getElementById('pdf-viewer').onload = function() {
-              window.opener.postMessage('pdfLoaded', '*');
-            };
-          </script>
-        </body>
-        </html>
-      `);
+      const container = document.createElement('div');
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '-9999px';
+      container.style.width = '1000px';
+      container.style.height = '1000px';
       
-      const messageListener = (event) => {
-        if (event.data === 'pdfLoaded') {
-          setTimeout(async () => {
-            try {
-              const pdfContainer = newWindow.document.getElementById('pdf-container');
-              
-              if (!pdfContainer) {
-                throw new Error('PDF container not found');
-              }
-              
-              const scale = dpi / 72;
-              
-              let imageDataUrl;
-              
-              switch (format) {
-                case "jpg":
-                  imageDataUrl = await htmlToImage.toJpeg(pdfContainer, {
-                    quality: 0.95,
-                    backgroundColor: '#ffffff',
-                    pixelRatio: scale,
-                    width: 1000 * scale,
-                    height: 1294 * scale
-                  });
-                  break;
-                case "png":
-                  imageDataUrl = await htmlToImage.toPng(pdfContainer, {
-                    backgroundColor: '#ffffff',
-                    pixelRatio: scale,
-                    width: 1000 * scale,
-                    height: 1294 * scale
-                  });
-                  break;
-                case "webp":
-                  imageDataUrl = await htmlToImage.toPng(pdfContainer, {
-                    backgroundColor: '#ffffff',
-                    pixelRatio: scale,
-                    width: 1000 * scale,
-                    height: 1294 * scale
-                  });
-                  break;
-                default:
-                  imageDataUrl = await htmlToImage.toJpeg(pdfContainer, {
-                    quality: 0.95,
-                    backgroundColor: '#ffffff',
-                    pixelRatio: scale,
-                    width: 1000 * scale,
-                    height: 1294 * scale
-                  });
-              }
-              
-              const downloadLink = document.createElement('a');
-              downloadLink.href = imageDataUrl;
-              downloadLink.download = `page-${pageNumber}.${format}`;
-              document.body.appendChild(downloadLink);
-              downloadLink.click();
-              document.body.removeChild(downloadLink);
-              
-              newWindow.close();
-              
-              toast({
-                title: "Download Complete",
-                description: `Page ${pageNumber} downloaded as ${format.toUpperCase()}.`,
-              });
-              
-              window.removeEventListener('message', messageListener);
-            } catch (error) {
-              console.error("Error converting to image:", error);
-              
-              toast({
-                title: "Using fallback download method",
-                description: `Downloading page ${pageNumber} as PDF instead.`,
-              });
-              
-              const link = document.createElement('a');
-              link.href = imageData;
-              link.download = `page-${pageNumber}.pdf`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              
-              newWindow.close();
-              
-              window.removeEventListener('message', messageListener);
-            }
-          }, 3000);
+      const embed = document.createElement('embed');
+      embed.src = imageData;
+      embed.type = 'application/pdf';
+      embed.style.width = '100%';
+      embed.style.height = '100%';
+      
+      container.appendChild(embed);
+      document.body.appendChild(container);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const scale = dpi / 72;
+      
+      let imageDataUrl;
+      
+      try {
+        switch (format) {
+          case "jpg":
+            imageDataUrl = await htmlToImage.toJpeg(container, {
+              quality: 0.95,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale
+            });
+            break;
+          case "png":
+          case "webp":
+            imageDataUrl = await htmlToImage.toPng(container, {
+              backgroundColor: '#ffffff',
+              pixelRatio: scale
+            });
+            break;
+          default:
+            imageDataUrl = await htmlToImage.toJpeg(container, {
+              quality: 0.95,
+              backgroundColor: '#ffffff',
+              pixelRatio: scale
+            });
         }
-      };
+        
+        const link = document.createElement('a');
+        link.href = imageDataUrl;
+        link.download = `page-${pageNumber}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: "Download Complete",
+          description: `Page ${pageNumber} downloaded as ${format.toUpperCase()}.`,
+        });
+      } catch (error) {
+        console.error("Error converting to image:", error);
+        
+        toast({
+          title: "Using fallback download method",
+          description: `Downloading page ${pageNumber} as PDF instead.`,
+        });
+        
+        const link = document.createElement('a');
+        link.href = imageData;
+        link.download = `page-${pageNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
-      window.addEventListener('message', messageListener);
+      document.body.removeChild(container);
       
     } catch (error) {
-      console.error("Error during download:", error);
-      
+      console.error("Error downloading image:", error);
       toast({
-        title: "Using direct fallback download",
-        description: `Downloading page ${pageNumber} as PDF.`,
+        title: "Download Error",
+        description: `Could not convert page ${pageNumber} to ${format.toUpperCase()}.`,
+        variant: "destructive",
       });
-      
-      const link = document.createElement('a');
-      link.href = imageData;
-      link.download = `page-${pageNumber}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     }
   };
 
@@ -380,7 +325,7 @@ const PDFToImage = () => {
       convertedImages.forEach((image, index) => {
         setTimeout(() => {
           downloadImage(image.page, image.thumbnail, index);
-        }, index * 2000);
+        }, index * 1000);
       });
     }
   };
