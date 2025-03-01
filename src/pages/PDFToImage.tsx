@@ -231,22 +231,24 @@ const PDFToImage = () => {
   const downloadImage = async (pageNumber: number, imageData: string, index: number) => {
     try {
       const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '-9999px';
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
       container.style.width = '1000px';
       container.style.height = '1000px';
+      container.style.zIndex = '-9999';
+      container.style.backgroundColor = '#ffffff';
       
-      const embed = document.createElement('embed');
-      embed.src = imageData;
-      embed.type = 'application/pdf';
-      embed.style.width = '100%';
-      embed.style.height = '100%';
+      const pdfObject = document.createElement('object');
+      pdfObject.data = imageData;
+      pdfObject.type = 'application/pdf';
+      pdfObject.style.width = '100%';
+      pdfObject.style.height = '100%';
       
-      container.appendChild(embed);
+      container.appendChild(pdfObject);
       document.body.appendChild(container);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       const scale = dpi / 72;
       
@@ -258,21 +260,24 @@ const PDFToImage = () => {
             imageDataUrl = await htmlToImage.toJpeg(container, {
               quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              skipAutoScale: true
             });
             break;
           case "png":
           case "webp":
             imageDataUrl = await htmlToImage.toPng(container, {
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              skipAutoScale: true
             });
             break;
           default:
             imageDataUrl = await htmlToImage.toJpeg(container, {
               quality: 0.95,
               backgroundColor: '#ffffff',
-              pixelRatio: scale
+              pixelRatio: scale,
+              skipAutoScale: true
             });
         }
         
@@ -301,9 +306,9 @@ const PDFToImage = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+      } finally {
+        document.body.removeChild(container);
       }
-      
-      document.body.removeChild(container);
       
     } catch (error) {
       console.error("Error downloading image:", error);
